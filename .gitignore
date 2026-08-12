@@ -1,0 +1,17 @@
+node_modules/
+.env
+.env.*
+npm-debug.log*
+*.log
+.DS_Store
+*.md
+*.png
+*.jpg
+*.jpeg
+.idea/
+.vscode/
+.cache/
+coverage/
+storage/task-attachments/*
+!storage/task-attachments/.gitkeep
+!storage/task-attachments/.htaccess

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#17362d">
+  <title>SEEE Activity Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/components.css">
+</head>
+<body>
+  <div id="toast" class="toast" aria-live="polite"></div>
+  <main id="login" class="login-page hidden">
+    <section class="login-art">
+      <div class="brand brand-light"><span class="brand-mark">S</span><span>SEEE <b>Activity Hub</b></span></div>
+      <div class="login-copy"><span class="eyebrow">WORK TOGETHER · REMEMBER TOGETHER</span><h1>Every contribution.<br><em>One shared story.</em></h1><p>Plan activities, coordinate teams, and preserve the work that moves our student community forward.</p></div>
+      <div class="login-quote"><div class="mini-avatars"><span>MA</span><span>HN</span><span>BC</span></div><p>Built for the Youth Union & Student Association</p></div>
+    </section>
+    <section class="login-panel"><button class="lang-toggle login-lang" data-language aria-label="Change language"><b>EN</b><span>VN</span></button><form id="login-form" class="login-form"><div class="mobile-brand brand"><span class="brand-mark">S</span><span>SEEE <b>Activity Hub</b></span></div><span class="eyebrow green">WELCOME BACK</span><h2>Sign in to your workspace</h2><p class="muted">Use your school account to continue.</p><label>Email address<input name="email" type="email" value="admin@seee.edu.vn" autocomplete="email" required></label><label>Password<input name="password" type="password" value="password" autocomplete="current-password" required></label><button class="btn primary wide" type="submit">Sign in <span>→</span></button><p class="demo-note">Demo: admin@seee.edu.vn / password</p></form></section>
+  </main>
+
+  <div id="app" class="app hidden">
+    <aside class="sidebar">
+      <a class="brand" href="#dashboard"><span class="brand-mark">S</span><span>SEEE <b>Activity Hub</b></span></a>
+      <nav id="nav"><a href="#dashboard" data-page="dashboard"><i>⌂</i><span>Overview</span></a><a href="#activities" data-page="activities"><i>◫</i><span>Activities</span></a><a href="#my-tasks" data-page="my-tasks"><i>✓</i><span>My tasks</span></a><a href="#teams" data-page="teams"><i>◎</i><span>Teams</span></a><a href="#people" data-page="people"><i>♙</i><span>People</span></a><a href="#archive" data-page="archive"><i>▤</i><span>Archive</span></a></nav>
+      <div class="sidebar-foot"><div id="sidebar-user" class="user-chip"></div><button class="lang-toggle" data-language aria-label="Change language"><b>EN</b><span>VN</span></button><button id="logout" class="logout-btn" title="Sign out" aria-label="Sign out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3M14 3h4a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3h-4"/></svg><span>Sign out</span></button></div>
+    </aside>
+    <header class="topbar"><a class="brand" href="#dashboard"><span class="brand-mark">S</span><span>Activity Hub</span></a><div class="top-actions"><button class="lang-toggle" data-language aria-label="Change language"><b>EN</b><span>VN</span></button><button id="mobile-menu" class="icon-btn">☰</button></div></header>
+    <main id="content" class="content"></main>
+  </div>
+
+  <dialog id="modal"><button class="modal-close" data-close>×</button><div id="modal-content"></div></dialog>
+  <script src="/app.js"></script>
+</body>
+</html>
