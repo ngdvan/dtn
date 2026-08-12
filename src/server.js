@@ -9,6 +9,7 @@ const MySQLStore = require('express-mysql-session')(session);
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
+const packageInfo = require('../package.json');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -54,6 +55,7 @@ async function canManageActivity(user,activityId){if(user.role==='admin')return 
 async function visibleActivity(user,activityId){const s=activityScope(user);const [r]=await db.execute(`SELECT 1 FROM activities a WHERE a.id=? AND ${s.sql}`,[activityId,...s.params]);return !!r.length}
 
 app.get('/api/session',(req,res)=>res.json({user:req.session.user||null}));
+app.get('/api/version',(_req,res)=>res.json({version:packageInfo.version,build:'2026-08-12'}));
 app.get('/api/health',asyncRoute(async(_req,res)=>{await db.query('SELECT 1');res.json({status:'ok'})}));
 app.post('/api/login',asyncRoute(async(req,res)=>{const email=String(req.body.email||'').trim().toLowerCase();const [rows]=await db.execute('SELECT id,name,email,password_hash,role,avatar_color FROM users WHERE email=? AND is_active=1',[email]);const user=one(rows);if(!user||!(await bcrypt.compare(String(req.body.password||''),user.password_hash)))return res.status(401).json({error:'Email or password is incorrect.'});delete user.password_hash;req.session.user=user;res.json({user})}));
 app.post('/api/logout',(req,res,next)=>req.session.destroy(err=>err?next(err):res.json({ok:true})));
