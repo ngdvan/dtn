@@ -38,7 +38,7 @@ const avatar=(name,color='#315C4C')=>`<span class="avatar" style="background:${e
 const canManage=()=>['admin','leader'].includes(state.user.role);
 const openModal=html=>{$('#modal-content').innerHTML=html;$('#modal').showModal()};
 
-async function init(){const [s,v]=await Promise.all([api('/api/session'),api('/api/version')]);$('#app-version').textContent=`v${v.version} · ${v.build}`;if(!s.user){$('#login').classList.remove('hidden');return}state.user=s.user;document.body.dataset.role=s.user.role;$('#app').classList.remove('hidden');$('#sidebar-user').innerHTML=`${avatar(s.user.name,s.user.avatar_color)}<span><strong>${esc(s.user.name)}</strong><small>${esc(s.user.role)}</small></span>`;window.addEventListener('hashchange',route);route()}
+async function init(){const s=await api('/api/session');const v=await api('/api/version').catch(()=>null);if(v)$('#app-version').textContent=`v${v.version} · ${v.build}`;if(!s.user){$('#login').classList.remove('hidden');return}state.user=s.user;document.body.dataset.role=s.user.role;$('#app').classList.remove('hidden');$('#sidebar-user').innerHTML=`${avatar(s.user.name,s.user.avatar_color)}<span><strong>${esc(s.user.name)}</strong><small>${esc(s.user.role)}</small></span>`;window.addEventListener('hashchange',route);route()}
 $('#login-form').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/login',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});location.reload()}catch(err){toast(err.message)}});
 $('#logout').addEventListener('click',async()=>{await api('/api/logout',{method:'POST'});location.reload()});
 $('#mobile-menu').addEventListener('click',()=>$('.sidebar').classList.toggle('open'));
