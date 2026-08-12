@@ -36,6 +36,7 @@ const sessionOptions={name:'seee.sid',secret:sessionSecret,resave:false,saveUnin
 if(hasConfiguredDatabase)sessionOptions.store=new MySQLStore(dbConfig);
 app.use(session(sessionOptions));
 app.use(express.static(path.join(__dirname,'..','public')));
+const applicationShell=path.join(__dirname,'..','public','index.html');
 
 const asyncRoute=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
 const auth=(req,res,next)=>req.session.user?next():res.status(401).json({error:'Please sign in to continue.'});
@@ -55,7 +56,7 @@ async function canManageActivity(user,activityId){if(user.role==='admin')return 
 async function visibleActivity(user,activityId){const s=activityScope(user);const [r]=await db.execute(`SELECT 1 FROM activities a WHERE a.id=? AND ${s.sql}`,[activityId,...s.params]);return !!r.length}
 
 app.get('/api/session',(req,res)=>res.json({user:req.session.user||null}));
-app.get('/api/version',(_req,res)=>res.json({version:packageInfo.version,build:'2026-08-12'}));
+app.get('/api/version',(_req,res)=>res.json({version:packageInfo.version,build:'2026-08-12.1'}));
 app.get('/api/health',asyncRoute(async(_req,res)=>{await db.query('SELECT 1');res.json({status:'ok'})}));
 app.post('/api/login',asyncRoute(async(req,res)=>{const email=String(req.body.email||'').trim().toLowerCase();const [rows]=await db.execute('SELECT id,name,email,password_hash,role,avatar_color FROM users WHERE email=? AND is_active=1',[email]);const user=one(rows);if(!user||!(await bcrypt.compare(String(req.body.password||''),user.password_hash)))return res.status(401).json({error:'Email or password is incorrect.'});delete user.password_hash;req.session.user=user;res.json({user})}));
 app.post('/api/logout',(req,res,next)=>req.session.destroy(err=>err?next(err):res.json({ok:true})));
@@ -115,6 +116,7 @@ app.get('/api/task-attachments/:id/content',auth,asyncRoute(async(req,res)=>{con
 app.get('/api/tasks/:id',auth,asyncRoute(async(req,res)=>{const [taskRows]=await db.execute(`SELECT t.*,a.title activity_title,a.description activity_description,a.status activity_status,a.deadline activity_deadline,te.name team_name,GROUP_CONCAT(DISTINCT u.name ORDER BY u.name SEPARATOR ', ') assignee_name,GROUP_CONCAT(DISTINCT u.id ORDER BY u.id) assignee_ids FROM tasks t JOIN activities a ON a.id=t.activity_id JOIN teams te ON te.id=t.team_id LEFT JOIN task_assignees ta ON ta.task_id=t.id LEFT JOIN users u ON u.id=ta.user_id WHERE t.id=? GROUP BY t.id`,[req.params.id]);const task=one(taskRows);if(!task||!(await visibleActivity(req.session.user,task.activity_id)))return res.status(404).json({error:'Task not found.'});const [[attachments],[updates]]=await Promise.all([db.execute('SELECT x.id,x.task_id,x.kind,x.label,x.link_url,x.original_name,x.mime_type,x.size_bytes,x.created_at,u.name user_name FROM task_attachments x JOIN users u ON u.id=x.user_id WHERE x.task_id=? ORDER BY x.created_at DESC',[task.id]),db.execute('SELECT n.*,u.name user_name,u.avatar_color FROM updates n JOIN users u ON u.id=n.user_id WHERE n.task_id=? ORDER BY n.created_at DESC',[task.id])]);const assigned=String(task.assignee_ids||'').split(',').map(Number).includes(req.session.user.id),manages=await canManageTeam(req.session.user,task.team_id);res.json({task,attachments,updates,canUpdate:assigned||manages})}));
 
 app.use('/api',(_req,res)=>res.status(404).json({error:'Endpoint not found.'}));
+app.get(/.*/,(_req,res)=>res.sendFile(applicationShell));
 app.use((err,req,res,_next)=>{console.error(err);if(res.headersSent)return;if(err instanceof multer.MulterError)return res.status(err.code==='LIMIT_FILE_SIZE'?413:400).json({error:err.code==='LIMIT_FILE_SIZE'?'A single file cannot exceed 50 MB.':err.message});res.status(err.code==='ER_DUP_ENTRY'?409:500).json({error:err.code==='ER_DUP_ENTRY'?'That item already exists.':'Something went wrong. Please try again.'})});
 const server=app.listen(port,()=>console.log(`SEEE Activity Hub running on port ${port}`));
 const shutdown=()=>server.close(()=>db.end().finally(()=>process.exit(0)));
