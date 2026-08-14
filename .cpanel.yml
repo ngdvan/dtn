@@ -1,0 +1,6 @@
+---
+deployment:
+  tasks:
+    - /bin/mkdir -p /home/nhsvsvwx/dtn/tmp
+    - /home/nhsvsvwx/nodevenv/dtn/22/bin/npm install --omit=dev --prefix /home/nhsvsvwx/dtn
+    - /usr/bin/touch /home/nhsvsvwx/dtn/tmp/restart.txt
