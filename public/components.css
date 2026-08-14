@@ -72,3 +72,9 @@ dialog{max-height:calc(100vh - 28px);overflow-y:auto}
 .logout-btn:hover{background:#f8e9e3;border-color:#e1c5b9}
 .logout-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .logout-btn span{white-space:nowrap}
+.user-chip{cursor:pointer;border-radius:10px;padding:4px}
+.user-chip:hover{background:#eef2ed}
+.activity-card{border-top:4px solid var(--activity-team,var(--line))}
+.person-actions{display:flex;gap:6px;margin-top:10px}
+.btn.danger{color:var(--red);border-color:#efd4d4}
+.btn.danger:hover{background:#fff4f4}
