@@ -1,4 +1,5 @@
 ---
+# This file must be committed at the repository root for cPanel Git Deployment.
 deployment:
   tasks:
     - /bin/mkdir -p /home/nhsvsvwx/dtn/tmp
