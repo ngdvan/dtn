@@ -135,6 +135,22 @@ CREATE TABLE IF NOT EXISTS updates (
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+CREATE TABLE IF NOT EXISTS documents (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(200) NOT NULL,
+  link_url VARCHAR(1000) NOT NULL,
+  description TEXT NOT NULL,
+  applicable_year SMALLINT UNSIGNED NOT NULL,
+  issuing_team_id INT UNSIGNED NOT NULL,
+  created_by INT UNSIGNED NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX documents_year (applicable_year),
+  INDEX documents_team (issuing_team_id),
+  FOREIGN KEY (issuing_team_id) REFERENCES teams(id),
+  FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
 INSERT IGNORE INTO teams (id, name, description, color, sort_order) VALUES
   (1, 'Communications', 'Media, content, photography and publications', '#315C4C', 1),
   (2, 'Logistics', 'Venue, materials, transport and operations', '#C76D4B', 2),
