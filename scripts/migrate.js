@@ -46,6 +46,26 @@ const migrations = fs.readdirSync(migrationDir)
     };
   });
 
+async function schemaHas(connection, table, column = null) {
+  const sql = column
+    ? 'SELECT 1 FROM information_schema.columns WHERE table_schema=? AND table_name=? AND column_name=? LIMIT 1'
+    : 'SELECT 1 FROM information_schema.tables WHERE table_schema=? AND table_name=? LIMIT 1';
+  const parameters = column ? [config.database, table, column] : [config.database, table];
+  const [rows] = await connection.execute(sql, parameters);
+  return rows.length > 0;
+}
+
+async function detectLegacyMigrations(connection) {
+  const detected = new Set();
+  if (await schemaHas(connection, 'activity_teams') &&
+      await schemaHas(connection, 'task_assignees') &&
+      await schemaHas(connection, 'tasks', 'start_date')) detected.add(2);
+  if (await schemaHas(connection, 'task_attachments')) detected.add(3);
+  if (await schemaHas(connection, 'documents')) detected.add(4);
+  if (await schemaHas(connection, 'documents', 'visibility')) detected.add(5);
+  return migrations.filter(migration => detected.has(migration.number));
+}
+
 async function run() {
   const connection = await mysql.createConnection(config);
   let locked = false;
@@ -61,6 +81,18 @@ async function run() {
       applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
+    let [rows] = await connection.query('SELECT filename, checksum FROM schema_migrations');
+    if (!rows.length && baseline === null) {
+      const detected = await detectLegacyMigrations(connection);
+      for (const migration of detected) {
+        await connection.execute(
+          'INSERT INTO schema_migrations(filename, checksum) VALUES(?, ?)',
+          [migration.filename, migration.checksum]
+        );
+        console.log(`Detected existing schema: ${migration.filename}`);
+      }
+    }
+
     if (baseline !== null) {
       const selected = migrations.filter(migration => migration.number <= baseline);
       if (!selected.length || baseline > migrations.at(-1).number) {
@@ -75,7 +107,7 @@ async function run() {
       console.log(`Baselined migrations through ${String(baseline).padStart(3, '0')}.`);
     }
 
-    const [rows] = await connection.query('SELECT filename, checksum FROM schema_migrations');
+    [rows] = await connection.query('SELECT filename, checksum FROM schema_migrations');
     const applied = new Map(rows.map(row => [row.filename, row.checksum]));
 
     for (const migration of migrations) {
