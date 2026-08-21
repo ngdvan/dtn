@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS activities (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   title VARCHAR(180) NOT NULL,
   description TEXT NOT NULL,
+  proposal_document_url VARCHAR(1000),
   type ENUM('event','assigned') NOT NULL,
   status ENUM('proposed','approved','active','completed','cancelled') NOT NULL DEFAULT 'proposed',
   priority ENUM('low','medium','high','urgent') NOT NULL DEFAULT 'medium',

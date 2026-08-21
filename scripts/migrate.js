@@ -63,6 +63,7 @@ async function detectLegacyMigrations(connection) {
   if (await schemaHas(connection, 'task_attachments')) detected.add(3);
   if (await schemaHas(connection, 'documents')) detected.add(4);
   if (await schemaHas(connection, 'documents', 'visibility')) detected.add(5);
+  if (await schemaHas(connection, 'activities', 'proposal_document_url')) detected.add(6);
   return migrations.filter(migration => detected.has(migration.number));
 }
 
