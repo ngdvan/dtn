@@ -90,14 +90,14 @@ function notifyTaskResponse(owner, task, respondedBy, response) {
   });
 }
 
-async function sendTestEmail(requestedBy) {
-  const description = 'admin test to van.nguyendinh@hust.edu.vn';
+async function sendTestEmail(to, requestedBy) {
+  const description = `admin test to ${to}`;
   try {
     const info = await send({
-      to: 'van.nguyendinh@hust.edu.vn',
+      to,
       subject: '[SEEE - Activity Hub] Kiểm tra thông báo email',
       heading: 'Email thông báo đang hoạt động',
-      paragraphs: ['Xin chào Nguyễn Đình Vân,', `${requestedBy || 'Quản trị viên'} vừa thực hiện kiểm tra gửi email từ SEEE Activity Hub.`, 'Nếu bạn nhận được email này, cấu hình Gmail của máy chủ đang hoạt động bình thường.'],
+      paragraphs: ['Xin chào,', `${requestedBy || 'Quản trị viên'} vừa thực hiện kiểm tra gửi email từ SEEE Activity Hub.`, 'Nếu bạn nhận được email này, cấu hình Gmail của máy chủ đang hoạt động bình thường.'],
       facts: [['Người thực hiện kiểm tra', requestedBy || 'Quản trị viên'], ['Thời gian kiểm tra', new Intl.DateTimeFormat('vi-VN', { dateStyle: 'full', timeStyle: 'medium', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date())]],
       url: appBaseUrl || '',
       buttonLabel: 'Mở SEEE Activity Hub'

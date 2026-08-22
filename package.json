@@ -1,6 +1,6 @@
 {
   "name": "seee-activity-hub",
-  "version": "1.5.9",
+  "version": "1.5.10",
   "private": true,
   "description": "Internal activity and task tracking for SEEE",
   "main": "app.js",

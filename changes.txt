@@ -1,6 +1,6 @@
 SEEE Activity Hub - Change Log
 Date: 2026-08-22
-Release: v1.5.9 (build 2026-08-22.3)
+Release: v1.5.10 (build 2026-08-22.4)
 
 LOCAL DATABASE AND SERVER
 - Configured the application to use the local MySQL 8.0 server on localhost:3306.
@@ -68,13 +68,14 @@ GMAIL EMAIL NOTIFICATIONS
 - Added Nodemailer 9.0.5 and included the mailer module in npm run check.
 - Removed .env from version control and ignored it so deployment credentials remain server-local.
 - Added detailed email delivery logs with Gmail response, error code, failed command, and rejected recipients when available.
-- Added an administrator-only test-email action for sending a Vietnamese notification to van.nguyendinh@hust.edu.vn.
+- Added an administrator-only test-email action with a validated recipient address selected by the administrator.
 - Added a targeted LiteSpeed lsnode termination fallback to .cpanel.yml because restart.txt did not stop the stale application worker on this host.
 - Updated the browser JavaScript cache-buster to v1.5.8 and bumped the release to build 2026-08-22.2.
 - Added task-response notifications to all task assignees except the person posting the response.
 - Task-response emails identify the responder, response type, response content, task, and activity.
 - Confirmed that newly added activity participants receive an email identifying who added them and their responsibility.
 - Updated the browser JavaScript cache-buster to v1.5.9 and bumped the release to build 2026-08-22.3.
+- Updated the browser JavaScript cache-buster to v1.5.10 and bumped the release to build 2026-08-22.4.
 
 VERIFICATION
 - Verified Gmail accepted a local notification test addressed to van.nguyendinh@hust.edu.vn.
