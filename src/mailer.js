@@ -18,24 +18,27 @@ const priorityLabel = value => ({ low: 'Thấp', medium: 'Trung bình', high: 'C
 const activityUrl = activityId => appBaseUrl ? `${appBaseUrl}/#activity/${activityId}` : '';
 
 async function send({ to, subject, heading, paragraphs, facts = [], url, buttonLabel = 'Mở hoạt động' }) {
-  if (!enabled || !to) return false;
+  if (!enabled) throw Object.assign(new Error('Gmail chưa được cấu hình trên máy chủ.'), { code: 'EMAIL_DISABLED' });
+  if (!to) throw Object.assign(new Error('Email người nhận bị thiếu.'), { code: 'EMAIL_RECIPIENT_MISSING' });
   const safeParagraphs = paragraphs.map(text => `<p style="margin:0 0 14px">${escapeHtml(text)}</p>`).join('');
   const safeFacts = facts.length ? `<table style="width:100%;border-collapse:collapse;margin:18px 0">${facts.map(([label, value]) => `<tr><td style="padding:7px;border-bottom:1px solid #e5e7eb;color:#64748b">${escapeHtml(label)}</td><td style="padding:7px;border-bottom:1px solid #e5e7eb;font-weight:600">${escapeHtml(value)}</td></tr>`).join('')}</table>` : '';
   const button = url ? `<p style="margin:22px 0 4px"><a href="${escapeHtml(url)}" style="background:#315c4c;color:#fff;padding:11px 18px;border-radius:7px;text-decoration:none;display:inline-block">${escapeHtml(buttonLabel)}</a></p>` : '';
-  await transporter.sendMail({
+  return transporter.sendMail({
     from: { name: process.env.MAIL_FROM_NAME || 'SEEE Activity Hub', address: gmailUser },
     to,
     subject,
     text: [heading, ...paragraphs, ...facts.map(([label, value]) => `${label}: ${value}`), url].filter(Boolean).join('\n\n'),
     html: `<div lang="vi" style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#1f2937"><h2 style="color:#315c4c">${escapeHtml(heading)}</h2>${safeParagraphs}${safeFacts}${button}<p style="margin-top:28px;color:#64748b;font-size:12px">Đây là email thông báo tự động từ SEEE Activity Hub.</p></div>`
   });
-  return true;
 }
+
+const deliveryDetails = info => ({ messageId: info.messageId, accepted: info.accepted, rejected: info.rejected, response: info.response });
+const failureDetails = error => ({ name: error.name, message: error.message, code: error.code, command: error.command, responseCode: error.responseCode, response: error.response });
 
 function queueEmail(description, message) {
   setImmediate(() => send(message)
-    .then(sent => { if (sent) logger.info(`Email notification sent: ${description}.`); })
-    .catch(error => logger.error(`Email notification failed: ${description}.`, error)));
+    .then(info => { if (info) logger.info(`Email notification sent: ${description}.`, deliveryDetails(info)); })
+    .catch(error => logger.error(`Email notification failed: ${description}.`, failureDetails(error))));
 }
 
 function notifyTaskAssigned(user, task, assignedBy) {
@@ -73,4 +76,24 @@ function notifyActivityProposed(admin, activity, proposedBy) {
   });
 }
 
-module.exports = { enabled, notifyTaskAssigned, notifyActivityRegistration, notifyActivityProposed };
+async function sendTestEmail(requestedBy) {
+  const description = 'admin test to van.nguyendinh@hust.edu.vn';
+  try {
+    const info = await send({
+      to: 'van.nguyendinh@hust.edu.vn',
+      subject: '[SEEE - Activity Hub] Kiểm tra thông báo email',
+      heading: 'Email thông báo đang hoạt động',
+      paragraphs: ['Xin chào Nguyễn Đình Vân,', `${requestedBy || 'Quản trị viên'} vừa thực hiện kiểm tra gửi email từ SEEE Activity Hub.`, 'Nếu bạn nhận được email này, cấu hình Gmail của máy chủ đang hoạt động bình thường.'],
+      facts: [['Người thực hiện kiểm tra', requestedBy || 'Quản trị viên'], ['Thời gian kiểm tra', new Intl.DateTimeFormat('vi-VN', { dateStyle: 'full', timeStyle: 'medium', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date())]],
+      url: appBaseUrl || '',
+      buttonLabel: 'Mở SEEE Activity Hub'
+    });
+    logger.info(`Email notification sent: ${description}.`, deliveryDetails(info));
+    return deliveryDetails(info);
+  } catch (error) {
+    logger.error(`Email notification failed: ${description}.`, failureDetails(error));
+    throw error;
+  }
+}
+
+module.exports = { enabled, notifyTaskAssigned, notifyActivityRegistration, notifyActivityProposed, sendTestEmail };

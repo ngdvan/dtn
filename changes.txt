@@ -1,5 +1,6 @@
 SEEE Activity Hub - Change Log
 Date: 2026-08-22
+Release: v1.5.7 (build 2026-08-22.1)
 
 LOCAL DATABASE AND SERVER
 - Configured the application to use the local MySQL 8.0 server on localhost:3306.
@@ -65,8 +66,14 @@ GMAIL EMAIL NOTIFICATIONS
 - Email delivery runs after successful database changes and failures are logged without failing the original request.
 - Added .env.example entries for Gmail credentials, sender name, and the application base URL.
 - Added Nodemailer 9.0.5 and included the mailer module in npm run check.
+- Removed .env from version control and ignored it so deployment credentials remain server-local.
+- Added detailed email delivery logs with Gmail response, error code, failed command, and rejected recipients when available.
+- Added an administrator-only test-email action for sending a Vietnamese notification to van.nguyendinh@hust.edu.vn.
 
 VERIFICATION
+- Verified Gmail accepted a local notification test addressed to van.nguyendinh@hust.edu.vn.
+- Verified the production homepage, health, version, and session endpoints return HTTP 200.
+- Production email delivery still requires verification from the production host after v1.5.7 is deployed with Gmail environment variables.
 - Passed npm run check for all JavaScript entry points.
 - Passed git diff --check, aside from informational Windows line-ending warnings.
 - Verified vice leader promotion, login role, activity capability, and team management permissions.
