@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const logger = require('./logger');
+const push = require('./push');
 
 const gmailUser = String(process.env.GMAIL_USER || '').trim();
 const gmailAppPassword = String(process.env.GMAIL_APP_PASSWORD || '').replace(/\s+/g, '');
@@ -50,6 +51,12 @@ function notifyTaskAssigned(user, task, assignedBy) {
     facts: [['Người giao việc', assignedBy || 'Quản trị viên'], ['Công việc', task.title], ['Hạn hoàn thành', formatDate(task.deadline)], ['Mức ưu tiên', priorityLabel(task.priority)], ['Sản phẩm cần bàn giao', task.deliverable || 'Không xác định']],
     url: activityUrl(task.activity_id)
   });
+  push.queuePush(`task ${task.id} to user ${user.id}`, {
+    userId: user.id,
+    title: 'Công việc mới',
+    message: `${assignedBy || 'Quản trị viên'} đã giao cho bạn: ${task.title}`,
+    url: activityUrl(task.activity_id)
+  });
 }
 
 function notifyActivityRegistration(user, activity, responsibility, addedBy) {
@@ -60,6 +67,12 @@ function notifyActivityRegistration(user, activity, responsibility, addedBy) {
     heading: 'Bạn đã được thêm vào một hoạt động',
     paragraphs: [`Xin chào ${user.name},`, `${addedBy || 'Quản trị viên'} vừa thêm bạn vào hoạt động “${activity.title}”.`],
     facts: [['Người thêm', addedBy || 'Quản trị viên'], ['Hạn hoạt động', formatDate(activity.deadline)], ['Vai trò/Nhiệm vụ', responsibilityLabel]],
+    url: activityUrl(activity.id)
+  });
+  push.queuePush(`activity ${activity.id} to user ${user.id}`, {
+    userId: user.id,
+    title: 'Hoạt động mới',
+    message: `${addedBy || 'Quản trị viên'} đã thêm bạn vào: ${activity.title}`,
     url: activityUrl(activity.id)
   });
 }
@@ -74,6 +87,12 @@ function notifyActivityProposed(admin, activity, proposedBy) {
     url: activityUrl(activity.id),
     buttonLabel: 'Xem và duyệt hoạt động'
   });
+  push.queuePush(`activity proposal ${activity.id} to admin ${admin.id}`, {
+    userId: admin.id,
+    title: 'Hoạt động chờ duyệt',
+    message: `${proposedBy || 'Một người dùng'} đã đề xuất: ${activity.title}`,
+    url: activityUrl(activity.id)
+  });
 }
 
 function notifyTaskResponse(owner, task, respondedBy, response) {
@@ -87,6 +106,12 @@ function notifyTaskResponse(owner, task, respondedBy, response) {
     facts: [['Người phản hồi', respondedBy || 'Không xác định'], ['Loại phản hồi', responseType], ['Nội dung', responseBody.length > 500 ? `${responseBody.slice(0, 497)}...` : responseBody]],
     url: activityUrl(task.activity_id),
     buttonLabel: 'Xem phản hồi'
+  });
+  push.queuePush(`task response on ${task.id} to user ${owner.id}`, {
+    userId: owner.id,
+    title: 'Phản hồi công việc mới',
+    message: `${respondedBy || 'Một người dùng'} đã phản hồi: ${task.title}`,
+    url: activityUrl(task.activity_id)
   });
 }
 

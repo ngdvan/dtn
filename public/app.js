@@ -49,9 +49,33 @@ const avatar=(name,color='#315C4C')=>`<span class="avatar" style="background:${e
 const canManage=()=>['admin','leader','vice_leader'].includes(state.user.role);
 const openModal=html=>{$('#modal-content').innerHTML=html;$('#modal').showModal()};
 
-async function init(){const s=await api('/api/session');const v=await api('/api/version').catch(()=>null);if(v)$('#app-version').textContent=`v${v.version} · ${v.build}`;if(!s.user){$('#login').classList.remove('hidden');return}state.user=s.user;document.body.dataset.role=s.user.role;if(!['admin','leader','vice_leader'].includes(s.user.role))$$('[data-manager-only]').forEach(x=>x.remove());$('#app').classList.remove('hidden');$('#sidebar-user').innerHTML=`${avatar(s.user.name,s.user.avatar_color)}<span><strong>${esc(s.user.name)}</strong><small>${esc(s.user.role.replace('_',' '))} · Edit account</small></span>`;$('#sidebar-user').onclick=selfAccountModal;$('#sidebar-user').title='Edit account';window.addEventListener('hashchange',route);route()}
+async function setupPushNotifications(){
+  const config=await api('/api/push/config');
+  if(!config.enabled||!config.appId)return;
+  window.OneSignalDeferred=window.OneSignalDeferred||[];
+  return new Promise((resolve,reject)=>window.OneSignalDeferred.push(async OneSignal=>{
+    try{await OneSignal.init({appId:config.appId,notifyButton:{enable:true},allowLocalhostAsSecureOrigin:['localhost','127.0.0.1'].includes(location.hostname)});await OneSignal.login(String(state.user.id));resolve()}
+    catch(error){reject(error)}
+  }));
+}
+
+function logoutPushUser(){
+  if(!window.OneSignalDeferred)return Promise.resolve();
+  return new Promise(resolve=>window.OneSignalDeferred.push(async OneSignal=>{
+    try{await OneSignal.logout()}catch(error){console.warn('Push notification logout failed.',error)}finally{resolve()}
+  }));
+}
+
+async function logoutPushUserWithTimeout(){
+  await Promise.race([
+    logoutPushUser(),
+    new Promise(resolve=>setTimeout(resolve,1500))
+  ]);
+}
+
+async function init(){const s=await api('/api/session');const v=await api('/api/version').catch(()=>null);if(v)$('#app-version').textContent=`v${v.version} · ${v.build}`;if(!s.user){$('#login').classList.remove('hidden');return}state.user=s.user;setupPushNotifications().catch(error=>console.warn('Push notification setup failed.',error));document.body.dataset.role=s.user.role;if(!['admin','leader','vice_leader'].includes(s.user.role))$$('[data-manager-only]').forEach(x=>x.remove());$('#app').classList.remove('hidden');$('#sidebar-user').innerHTML=`${avatar(s.user.name,s.user.avatar_color)}<span><strong>${esc(s.user.name)}</strong><small>${esc(s.user.role.replace('_',' '))} · Edit account</small></span>`;$('#sidebar-user').onclick=selfAccountModal;$('#sidebar-user').title='Edit account';window.addEventListener('hashchange',route);route()}
 $('#login-form').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/login',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});location.reload()}catch(err){toast(err.message)}});
-$('#logout').addEventListener('click',async()=>{await api('/api/logout',{method:'POST'});location.reload()});
+$('#logout').addEventListener('click',async()=>{await logoutPushUserWithTimeout();await api('/api/logout',{method:'POST'});location.reload()});
 $('#mobile-menu').addEventListener('click',()=>$('.sidebar').classList.toggle('open'));
 $('#modal').addEventListener('click',e=>{if(e.target.hasAttribute('data-close'))$('#modal').close()});
 

@@ -13,6 +13,7 @@ const ExcelJS = require('exceljs');
 const packageInfo = require('../package.json');
 const logger = require('./logger');
 const mailer = require('./mailer');
+const push = require('./push');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -22,6 +23,7 @@ const missingProductionKeys=requiredProductionKeys.filter(key=>!process.env[key]
 if(isProduction&&missingProductionKeys.length)console.warn(`Configuration warning: missing ${missingProductionKeys.join(', ')}. Configure these in cPanel, then restart the application.`);
 if(isProduction&&process.env.SESSION_SECRET&&process.env.SESSION_SECRET.length<32)console.warn('Configuration warning: SESSION_SECRET should contain at least 32 characters.');
 if(isProduction&&!mailer.enabled)console.warn('Configuration warning: email notifications are disabled. Configure GMAIL_USER and GMAIL_APP_PASSWORD, then restart the application.');
+if(isProduction&&!push.enabled)console.warn('Configuration warning: push notifications are disabled. Configure ONESIGNAL_APP_ID and ONESIGNAL_API_KEY, then restart the application.');
 const dbConfig = { host:process.env.DB_HOST||'localhost',port:Number(process.env.DB_PORT||3306),user:process.env.DB_USER||'seee_app',password:process.env.DB_PASSWORD||'',database:process.env.DB_NAME||'seee_activity_hub',charset:'utf8mb4',waitForConnections:true,connectionLimit:10 };
 const db = mysql.createPool(dbConfig);
 const hasConfiguredDatabase=['DB_NAME','DB_USER','DB_PASSWORD'].every(key=>Boolean(process.env[key]));
@@ -68,6 +70,7 @@ async function visibleActivity(user,activityId){const s=activityScope(user);cons
 app.patch('/api/activities/:id',auth,manager,asyncRoute(async(req,res,next)=>{if(!Object.hasOwn(req.body,'proposal_document_url'))return next();if(!(await canManageActivity(req.session.user,req.params.id)))return res.status(403).json({error:'You cannot manage this activity.'});const proposalDocumentUrl=String(req.body.proposal_document_url||'').trim();if(!validHttpUrl(proposalDocumentUrl))return res.status(400).json({error:'The activity proposal document must be a valid http:// or https:// link.'});await db.execute('UPDATE activities SET proposal_document_url=? WHERE id=?',[proposalDocumentUrl||null,req.params.id]);delete req.body.proposal_document_url;next()}));
 
 app.get('/api/session',(req,res)=>res.json({user:req.session.user||null}));
+app.get('/api/push/config',auth,(_req,res)=>{res.set('Cache-Control','no-store');res.json({enabled:push.enabled,appId:push.enabled?push.appId:null})});
 app.get('/api/version',(_req,res)=>{res.set('Cache-Control','no-store');res.json({version:packageInfo.version,build:'2026-08-22.4'})});
 app.get('/api/health',asyncRoute(async(_req,res)=>{try{await db.query('SELECT 1');res.json({status:'ok'})}catch(error){logger.error('Database health check failed.',error);throw error}}));
 app.post('/api/email/test',auth,admin,asyncRoute(async(req,res)=>{const to=String(req.body.to||'').trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)||to.length>254)return res.status(400).json({error:'Vui lòng nhập địa chỉ email hợp lệ.'});try{const result=await mailer.sendTestEmail(to,req.session.user.name);res.json({ok:true,to,message_id:result.messageId})}catch(error){res.status(502).json({error:`Không thể gửi email kiểm tra: ${error.response||error.message||'Lỗi không xác định'}`})}}));
