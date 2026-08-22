@@ -5,3 +5,6 @@ deployment:
     - /bin/mkdir -p /home/nhsvsvwx/dtn/tmp
     - /home/nhsvsvwx/nodevenv/dtn/22/bin/npm install --omit=dev --prefix /home/nhsvsvwx/dtn
     - /usr/bin/touch /home/nhsvsvwx/dtn/tmp/restart.txt
+    # LiteSpeed fallback: terminate only this app's stale lsnode worker.
+    # LiteSpeed starts a fresh worker on the next HTTP request.
+    - /usr/bin/pkill -TERM -f '^lsnode:/home/nhsvsvwx/dtn/$' || /bin/true

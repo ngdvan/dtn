@@ -76,6 +76,20 @@ function notifyActivityProposed(admin, activity, proposedBy) {
   });
 }
 
+function notifyTaskResponse(owner, task, respondedBy, response) {
+  const responseType = ({ comment: 'Bình luận', progress: 'Cập nhật tiến độ', issue: 'Vấn đề', evidence: 'Minh chứng' })[response.kind] || 'Phản hồi';
+  const responseBody = String(response.body || '').trim();
+  queueEmail(`task response on ${task.id} to user ${owner.id}`, {
+    to: owner.email,
+    subject: `[SEEE - Activity Hub] Phản hồi mới cho công việc: ${task.title}`,
+    heading: 'Công việc của bạn có phản hồi mới',
+    paragraphs: [`Xin chào ${owner.name},`, `${respondedBy || 'Một người dùng'} vừa phản hồi công việc “${task.title}” trong hoạt động “${task.activity_title}”.`],
+    facts: [['Người phản hồi', respondedBy || 'Không xác định'], ['Loại phản hồi', responseType], ['Nội dung', responseBody.length > 500 ? `${responseBody.slice(0, 497)}...` : responseBody]],
+    url: activityUrl(task.activity_id),
+    buttonLabel: 'Xem phản hồi'
+  });
+}
+
 async function sendTestEmail(requestedBy) {
   const description = 'admin test to van.nguyendinh@hust.edu.vn';
   try {
@@ -96,4 +110,4 @@ async function sendTestEmail(requestedBy) {
   }
 }
 
-module.exports = { enabled, notifyTaskAssigned, notifyActivityRegistration, notifyActivityProposed, sendTestEmail };
+module.exports = { enabled, notifyTaskAssigned, notifyActivityRegistration, notifyActivityProposed, notifyTaskResponse, sendTestEmail };
