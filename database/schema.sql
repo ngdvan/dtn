@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
   name VARCHAR(120) NOT NULL,
   email VARCHAR(190) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
-  role ENUM('admin','leader','member') NOT NULL DEFAULT 'member',
+  role ENUM('admin','leader','vice_leader','member') NOT NULL DEFAULT 'member',
   phone VARCHAR(30),
   avatar_color CHAR(7) NOT NULL DEFAULT '#315C4C',
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS user_teams (
   user_id INT UNSIGNED NOT NULL,
   team_id INT UNSIGNED NOT NULL,
   is_lead BOOLEAN NOT NULL DEFAULT FALSE,
+  is_vice_lead BOOLEAN NOT NULL DEFAULT FALSE,
   PRIMARY KEY (user_id, team_id),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
@@ -143,7 +144,7 @@ CREATE TABLE IF NOT EXISTS documents (
   description TEXT NOT NULL,
   applicable_year SMALLINT UNSIGNED NOT NULL,
   issuing_team_id INT UNSIGNED NOT NULL,
-  visibility ENUM('all','managers') NOT NULL DEFAULT 'all',
+  visibility ENUM('all_teams','issuing_team') NOT NULL DEFAULT 'issuing_team',
   created_by INT UNSIGNED NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -168,7 +169,7 @@ INSERT IGNORE INTO users (id, name, email, password_hash, role, phone, avatar_co
   (3, 'Le Hoang Nam', 'leader@seee.edu.vn', '$2b$10$tgCJElVRWK1z/OEpyy./6.yePIi7J51BUbU3VxWVCF5JDzZhDbqRG', 'leader', '090 345 6789', '#C76D4B'),
   (4, 'Pham Bao Chau', 'member@seee.edu.vn', '$2b$10$tgCJElVRWK1z/OEpyy./6.yePIi7J51BUbU3VxWVCF5JDzZhDbqRG', 'member', '090 456 7890', '#9A6D9D');
 
-INSERT IGNORE INTO user_teams VALUES (1,1,1),(2,3,1),(3,4,1),(3,2,0),(4,1,0);
+INSERT IGNORE INTO user_teams (user_id,team_id,is_lead,is_vice_lead) VALUES (1,1,1,0),(2,3,1,0),(3,4,1,0),(3,2,0,0),(4,1,0,0);
 
 INSERT IGNORE INTO activities (id,title,description,type,status,priority,team_id,creator_id,requested_by,location,start_date,deadline) VALUES
  (1,'Welcome Week 2026','Welcome new students to SEEE through orientation, campus tours and team activities.','event','active','high',4,3,NULL,'SEEE Main Hall','2026-08-18','2026-08-22'),

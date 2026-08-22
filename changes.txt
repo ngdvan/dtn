@@ -1,0 +1,57 @@
+SEEE Activity Hub - Change Log
+Date: 2026-08-22
+
+LOCAL DATABASE AND SERVER
+- Configured the application to use the local MySQL 8.0 server on localhost:3306.
+- Configured database credentials as root/root in .env.
+- Created and initialized the seee_activity_hub database.
+- Imported the application schema and applied all migrations.
+- Verified the application can connect to MySQL successfully.
+- Started the local Node.js server at http://localhost:3000.
+- Verified the application health endpoint returns a successful response.
+
+VICE LEADER ROLE
+- Added vice_leader to the supported user account roles.
+- Added the is_vice_lead flag to each user-to-team membership.
+- Granted vice leaders the same team-scoped responsibilities as team leaders.
+- Vice leaders can manage activities, tasks, participants, members, reports, and team settings for teams they lead.
+- Vice leaders do not receive administrator-only permissions.
+- Added vice leader support to activity visibility, task visibility, team management, user management, reporting, and capability checks.
+- Added vice leader options to account creation, account editing, people filters, team member assignment, and existing membership editing.
+- Administrators can promote or demote an existing team member between member, vice leader, and leader.
+- The global account role is synchronized with the user's highest team leadership assignment.
+- Added vice leader badges and labels to team and member interfaces.
+
+DOCUMENT VIEW PERMISSIONS
+- Replaced the old all/managers document visibility model.
+- Added issuing_team visibility: only members of the document's issuing team can view it.
+- Added all_teams visibility: every signed-in team member can view it.
+- Administrators can view all documents for auditing and administration.
+- Document year and team filters now include only documents visible to the signed-in user.
+- The add-document form now provides Issuing team members and All teams options.
+- Document cards show the configured audience.
+- Existing all documents were migrated to all_teams.
+- Existing managers-only documents were migrated to issuing_team.
+
+DATABASE MIGRATION
+- Added database/migrations/007_vice_leader_document_audience.sql.
+- Updated database/schema.sql for fresh installations.
+- Applied migration 007 successfully to the local database.
+
+ENGLISH AND VIETNAMESE INTERFACE
+- Added Vietnamese translations for vice leader roles, team-role controls, document audiences, notifications, and validation errors.
+- Prevented raw vice_leader values from appearing in the sidebar and badges.
+- Updated compound role/account labels to translate vice leaders correctly.
+- Added the vice leader option to English and Vietnamese account and team-role controls.
+- Ensured vice leaders retain the appropriate manager interface controls.
+- Fixed the existing-member role selector so every displayed member can be updated.
+
+VERIFICATION
+- Passed npm run check for all JavaScript entry points.
+- Passed git diff --check, aside from informational Windows line-ending warnings.
+- Verified vice leader promotion, login role, activity capability, and team management permissions.
+- Restored the test account to its original member role after verification.
+- Verified issuing-team members can see both team-only and all-team documents.
+- Verified members of other teams can see all-team documents but not issuing-team-only documents.
+- Removed all temporary permission-test documents after verification.
+- Confirmed the database migration history is current and the server health status is OK.
