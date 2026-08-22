@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   priority ENUM('low','medium','high','urgent') NOT NULL DEFAULT 'medium',
   team_id INT UNSIGNED NOT NULL,
   assignee_id INT UNSIGNED,
+  assigned_by INT UNSIGNED,
   start_date DATE,
   deadline DATE NOT NULL,
   deliverable VARCHAR(255),
@@ -84,7 +85,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE,
   FOREIGN KEY (team_id) REFERENCES teams(id),
-  FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL
+  FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (assigned_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS task_assignees (

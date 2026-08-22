@@ -6,6 +6,7 @@ const gmailUser = String(process.env.GMAIL_USER || '').trim();
 const gmailAppPassword = String(process.env.GMAIL_APP_PASSWORD || '').replace(/\s+/g, '');
 const appBaseUrl = String(process.env.APP_BASE_URL || '').replace(/\/$/, '');
 const enabled = Boolean(gmailUser && gmailAppPassword);
+const notificationEmailEnabled = process.env.EMAIL_NOTIFICATIONS_ENABLED === 'true';
 const transporter = enabled ? nodemailer.createTransport({
   service: 'gmail',
   auth: { user: gmailUser, pass: gmailAppPassword }
@@ -37,6 +38,7 @@ const deliveryDetails = info => ({ messageId: info.messageId, accepted: info.acc
 const failureDetails = error => ({ name: error.name, message: error.message, code: error.code, command: error.command, responseCode: error.responseCode, response: error.response });
 
 function queueEmail(description, message) {
+  if (!notificationEmailEnabled) return;
   setImmediate(() => send(message)
     .then(info => { if (info) logger.info(`Email notification sent: ${description}.`, deliveryDetails(info)); })
     .catch(error => logger.error(`Email notification failed: ${description}.`, failureDetails(error))));
