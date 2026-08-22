@@ -54,7 +54,15 @@ async function setupPushNotifications(){
   if(!config.enabled||!config.appId)return;
   window.OneSignalDeferred=window.OneSignalDeferred||[];
   return new Promise((resolve,reject)=>window.OneSignalDeferred.push(async OneSignal=>{
-    try{await OneSignal.init({appId:config.appId,notifyButton:{enable:true},allowLocalhostAsSecureOrigin:['localhost','127.0.0.1'].includes(location.hostname)});await OneSignal.login(String(state.user.id));resolve()}
+    try{
+      await OneSignal.init({appId:config.appId,notifyButton:{enable:true},allowLocalhostAsSecureOrigin:['localhost','127.0.0.1'].includes(location.hostname)});
+      const identify=()=>OneSignal.login(String(state.user.id));
+      OneSignal.User.PushSubscription.addEventListener('change',event=>{
+        if(event.current.optedIn&&event.current.token)identify().catch(error=>console.warn('Push user identification failed.',error));
+      });
+      if(OneSignal.User.PushSubscription.optedIn&&OneSignal.User.PushSubscription.token)await identify();
+      resolve();
+    }
     catch(error){reject(error)}
   }));
 }
@@ -62,7 +70,7 @@ async function setupPushNotifications(){
 function logoutPushUser(){
   if(!window.OneSignalDeferred)return Promise.resolve();
   return new Promise(resolve=>window.OneSignalDeferred.push(async OneSignal=>{
-    try{await OneSignal.logout()}catch(error){console.warn('Push notification logout failed.',error)}finally{resolve()}
+    try{if(OneSignal.User.externalId)await OneSignal.logout()}catch(error){console.warn('Push notification logout failed.',error)}finally{resolve()}
   }));
 }
 

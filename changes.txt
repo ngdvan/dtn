@@ -1,6 +1,6 @@
 SEEE Activity Hub - Change Log
-Date: 2026-08-22
-Release: v1.5.10 (build 2026-08-22.4)
+Date: 2026-08-23
+Release: v1.6.0 (build 2026-08-23.1)
 
 PUSH-ONLY NOTIFICATIONS (2026-08-23)
 - Temporarily disabled automatic notification emails; notification events now use OneSignal push delivery only.
@@ -10,6 +10,8 @@ PUSH-ONLY NOTIFICATIONS (2026-08-23)
 - Added task assigner tracking so a reply notifies the person who originally assigned the task.
 - Task-response recipients include the task assigner and other assignees, exclude the responder, and are deduplicated.
 - Existing tasks are backfilled with their activity creator as the best available historical assigner.
+- Deferred OneSignal user identification until the browser has an opted-in subscription and valid push token, preventing invalid pre-subscription login operations.
+- Bumped the application release, server build identifier, visible UI version, package metadata, and browser cache-buster to v1.6.0.
 
 LOCAL DATABASE AND SERVER
 - Configured the application to use the local MySQL 8.0 server on localhost:3306.

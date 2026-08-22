@@ -71,7 +71,7 @@ app.patch('/api/activities/:id',auth,manager,asyncRoute(async(req,res,next)=>{if
 
 app.get('/api/session',(req,res)=>res.json({user:req.session.user||null}));
 app.get('/api/push/config',auth,(_req,res)=>{res.set('Cache-Control','no-store');res.json({enabled:push.enabled,appId:push.enabled?push.appId:null})});
-app.get('/api/version',(_req,res)=>{res.set('Cache-Control','no-store');res.json({version:packageInfo.version,build:'2026-08-22.4'})});
+app.get('/api/version',(_req,res)=>{res.set('Cache-Control','no-store');res.json({version:packageInfo.version,build:'2026-08-23.1'})});
 app.get('/api/health',asyncRoute(async(_req,res)=>{try{await db.query('SELECT 1');res.json({status:'ok'})}catch(error){logger.error('Database health check failed.',error);throw error}}));
 app.post('/api/email/test',auth,admin,asyncRoute(async(req,res)=>{const to=String(req.body.to||'').trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)||to.length>254)return res.status(400).json({error:'Vui lòng nhập địa chỉ email hợp lệ.'});try{const result=await mailer.sendTestEmail(to,req.session.user.name);res.json({ok:true,to,message_id:result.messageId})}catch(error){res.status(502).json({error:`Không thể gửi email kiểm tra: ${error.response||error.message||'Lỗi không xác định'}`})}}));
 app.post('/api/login',asyncRoute(async(req,res)=>{const email=String(req.body.email||'').trim().toLowerCase();const [rows]=await db.execute('SELECT id,name,email,password_hash,role,phone,avatar_color FROM users WHERE email=? AND is_active=1',[email]);const user=one(rows);if(!user||!(await bcrypt.compare(String(req.body.password||''),user.password_hash)))return res.status(401).json({error:'Email or password is incorrect.'});delete user.password_hash;req.session.user=user;res.json({user})}));
