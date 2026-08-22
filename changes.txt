@@ -33,6 +33,13 @@ DOCUMENT VIEW PERMISSIONS
 - Existing all documents were migrated to all_teams.
 - Existing managers-only documents were migrated to issuing_team.
 
+DOCUMENT EDITING
+- Added document editing for name, link, description, applicable year, issuing team, and view permission.
+- Added Edit actions to document cards for authorized users.
+- Administrators, document creators, and leaders or vice leaders of the issuing team can edit a document.
+- Users cannot move a document to a team for which they lack issuing permission.
+- Added English and Vietnamese labels, success messages, and errors for document editing.
+
 DATABASE MIGRATION
 - Added database/migrations/007_vice_leader_document_audience.sql.
 - Updated database/schema.sql for fresh installations.
