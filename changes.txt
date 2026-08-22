@@ -53,6 +53,19 @@ ENGLISH AND VIETNAMESE INTERFACE
 - Ensured vice leaders retain the appropriate manager interface controls.
 - Fixed the existing-member role selector so every displayed member can be updated.
 
+GMAIL EMAIL NOTIFICATIONS
+- Added Gmail delivery through Nodemailer using GMAIL_USER and GMAIL_APP_PASSWORD environment variables.
+- Added Vietnamese HTML and plain-text notification templates with the [SEEE - Activity Hub] subject prefix.
+- Added an activity link to each email when APP_BASE_URL is configured.
+- Added a notification to every assignee when a new task is created, including the name of the person who assigned it.
+- Added a notification when a manager adds or confirms a user in an activity, including the name of the person who added them.
+- Added a notification to every active administrator when a new activity proposal is created, including the proposal creator and activity details.
+- Suppressed duplicate participant emails for users who are already confirmed in an activity.
+- Volunteer registration does not send an email notification.
+- Email delivery runs after successful database changes and failures are logged without failing the original request.
+- Added .env.example entries for Gmail credentials, sender name, and the application base URL.
+- Added Nodemailer 9.0.5 and included the mailer module in npm run check.
+
 VERIFICATION
 - Passed npm run check for all JavaScript entry points.
 - Passed git diff --check, aside from informational Windows line-ending warnings.
