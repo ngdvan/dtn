@@ -69,6 +69,7 @@ GMAIL EMAIL NOTIFICATIONS
 - Removed .env from version control and ignored it so deployment credentials remain server-local.
 - Added detailed email delivery logs with Gmail response, error code, failed command, and rejected recipients when available.
 - Added an administrator-only test-email action for sending a Vietnamese notification to van.nguyendinh@hust.edu.vn.
+- Updated the browser JavaScript cache-buster to v1.5.7 so deployed frontend code stays aligned with the backend API release.
 
 VERIFICATION
 - Verified Gmail accepted a local notification test addressed to van.nguyendinh@hust.edu.vn.
