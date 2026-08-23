@@ -80,7 +80,8 @@ function initializeNotifications() {
     toggleNotifications().catch(error => toast(error.message));
   });
   $('#notification-panel').onclick = event => event.stopPropagation();
-  document.addEventListener('click', () => {
+  document.addEventListener('click', event => {
+    if (event.target.closest('.notification-trigger, #notification-panel')) return;
     $('#notification-panel').classList.add('hidden');
     $$('.notification-trigger').forEach(button => button.setAttribute('aria-expanded', 'false'));
   });
