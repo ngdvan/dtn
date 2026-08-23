@@ -1,8 +1,7 @@
-// Conventional cPanel/Passenger startup entry point.
 const logger = require('./src/logger');
 
 try {
-  require('./src/server');
+  require('./src/server').start();
 } catch (error) {
   logger.error('Application failed during startup.', error);
   console.error(error);

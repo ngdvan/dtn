@@ -100,3 +100,10 @@ VERIFICATION
 - Verified members of other teams can see all-team documents but not issuing-team-only documents.
 - Removed all temporary permission-test documents after verification.
 - Confirmed the database migration history is current and the server health status is OK.
+Release: v2.0.0 (build 2026-08-23.2)
+
+- Split the former monolithic server into configuration, middleware, access-policy, domain-route, application-construction, and HTTP-runtime modules.
+- Kept root app.js as the cPanel/Passenger startup entry point while replacing require-time server startup with an explicit start() contract.
+- Preserved all 38 existing HTTP route registrations and their public URLs.
+- Added automatic syntax validation for every JavaScript module under src.
+- Bumped package metadata, the visible UI version, and the browser cache-buster to v2.0.0.
