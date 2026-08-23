@@ -107,3 +107,4 @@ Release: v2.0.0 (build 2026-08-23.2)
 - Preserved all 38 existing HTTP route registrations and their public URLs.
 - Added automatic syntax validation for every JavaScript module under src.
 - Bumped package metadata, the visible UI version, and the browser cache-buster to v2.0.0.
+- Added an administrator-only permanent activity deletion flow with transactional dependent-row cleanup, stored attachment cleanup, audit logging, and typed-title UI confirmation.
