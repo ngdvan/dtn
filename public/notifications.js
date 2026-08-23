@@ -28,7 +28,7 @@ async function openNotification(item) {
     updateNotificationBadge();
   }
   $('#notification-panel').classList.add('hidden');
-  $('.notification-trigger').setAttribute('aria-expanded', 'false');
+  $$('.notification-trigger').forEach(button => button.setAttribute('aria-expanded', 'false'));
   if (item.url) {
     const target = new URL(item.url, location.origin);
     location.hash = target.hash || '#dashboard';
@@ -59,7 +59,7 @@ async function toggleNotifications() {
   const panel = $('#notification-panel');
   const opening = panel.classList.contains('hidden');
   panel.classList.toggle('hidden', !opening);
-  $('.notification-trigger').setAttribute('aria-expanded', String(opening));
+  $$('.notification-trigger').forEach(button => button.setAttribute('aria-expanded', String(opening)));
   if (!opening) return;
   await loadNotifications();
   if (state.notificationUnread) {
@@ -72,14 +72,17 @@ async function toggleNotifications() {
 }
 
 function initializeNotifications() {
-  $('.notification-trigger').onclick = event => {
+  const mobileTrigger = $('.mobile-notification');
+  const topActions = $('.top-actions');
+  if (mobileTrigger && topActions) topActions.insertBefore(mobileTrigger, topActions.firstChild);
+  $$('.notification-trigger').forEach(button => button.onclick = event => {
     event.stopPropagation();
     toggleNotifications().catch(error => toast(error.message));
-  };
+  });
   $('#notification-panel').onclick = event => event.stopPropagation();
   document.addEventListener('click', () => {
     $('#notification-panel').classList.add('hidden');
-    $('.notification-trigger').setAttribute('aria-expanded', 'false');
+    $$('.notification-trigger').forEach(button => button.setAttribute('aria-expanded', 'false'));
   });
   loadNotifications(true).catch(error => console.warn('Notification inbox failed.', error));
   setInterval(() => loadNotifications(true).catch(() => {}), 60000);

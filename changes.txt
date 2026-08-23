@@ -117,3 +117,4 @@ Release: v2.1.0 (build 2026-08-23.3)
 - Added notification ownership checks so users can only read or mark their own notifications.
 - Added migrations 009–010 for durable notifications and activity/task cascade cleanup, and enabled automatic database migrations during cPanel deployment.
 - Bumped package metadata, visible UI version, API build, JavaScript cache-busters, and full-source syntax checking to v2.1.0.
+- Replaced the floating notification bell with a message icon positioned beside the EN/VN control, with dedicated desktop-sidebar and mobile-topbar layouts.
