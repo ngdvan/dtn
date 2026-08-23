@@ -1,179 +1,2021 @@
-require('dotenv').config();
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
-const express = require('express');
-const helmet = require('helmet');
-const session = require('express-session');
-const MySQLStore = require('express-mysql-session')(session);
-const mysql = require('mysql2/promise');
-const bcrypt = require('bcryptjs');
-const multer = require('multer');
-const ExcelJS = require('exceljs');
-const packageInfo = require('../package.json');
-const logger = require('./logger');
-const mailer = require('./mailer');
-const push = require('./push');
+require("dotenv").config();
+const path = require("path");
+const fs = require("fs");
+const crypto = require("crypto");
+const express = require("express");
+const helmet = require("helmet");
+const session = require("express-session");
+const MySQLStore = require("express-mysql-session")(session);
+const mysql = require("mysql2/promise");
+const bcrypt = require("bcryptjs");
+const multer = require("multer");
+const ExcelJS = require("exceljs");
+const packageInfo = require("../package.json");
+const logger = require("./logger");
+const mailer = require("./mailer");
+const push = require("./push");
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
-const isProduction=process.env.NODE_ENV==='production';
-const requiredProductionKeys=['DB_HOST','DB_NAME','DB_USER','DB_PASSWORD','SESSION_SECRET'];
-const missingProductionKeys=requiredProductionKeys.filter(key=>!process.env[key]);
-if(isProduction&&missingProductionKeys.length)console.warn(`Configuration warning: missing ${missingProductionKeys.join(', ')}. Configure these in cPanel, then restart the application.`);
-if(isProduction&&process.env.SESSION_SECRET&&process.env.SESSION_SECRET.length<32)console.warn('Configuration warning: SESSION_SECRET should contain at least 32 characters.');
-if(isProduction&&!mailer.enabled)console.warn('Configuration warning: email notifications are disabled. Configure GMAIL_USER and GMAIL_APP_PASSWORD, then restart the application.');
-if(isProduction&&!push.enabled)console.warn('Configuration warning: push notifications are disabled. Configure ONESIGNAL_APP_ID and ONESIGNAL_API_KEY, then restart the application.');
-const dbConfig = { host:process.env.DB_HOST||'localhost',port:Number(process.env.DB_PORT||3306),user:process.env.DB_USER||'seee_app',password:process.env.DB_PASSWORD||'',database:process.env.DB_NAME||'seee_activity_hub',charset:'utf8mb4',waitForConnections:true,connectionLimit:10 };
+const isProduction = process.env.NODE_ENV === "production";
+const requiredProductionKeys = [
+  "DB_HOST",
+  "DB_NAME",
+  "DB_USER",
+  "DB_PASSWORD",
+  "SESSION_SECRET",
+];
+const missingProductionKeys = requiredProductionKeys.filter(
+  (key) => !process.env[key],
+);
+if (isProduction && missingProductionKeys.length)
+  console.warn(
+    `Configuration warning: missing ${missingProductionKeys.join(", ")}. Configure these in cPanel, then restart the application.`,
+  );
+if (
+  isProduction &&
+  process.env.SESSION_SECRET &&
+  process.env.SESSION_SECRET.length < 32
+)
+  console.warn(
+    "Configuration warning: SESSION_SECRET should contain at least 32 characters.",
+  );
+if (isProduction && !mailer.enabled)
+  console.warn(
+    "Configuration warning: email notifications are disabled. Configure GMAIL_USER and GMAIL_APP_PASSWORD, then restart the application.",
+  );
+if (isProduction && !push.enabled)
+  console.warn(
+    "Configuration warning: push notifications are disabled. Configure ONESIGNAL_APP_ID and ONESIGNAL_API_KEY, then restart the application.",
+  );
+const dbConfig = {
+  host: process.env.DB_HOST || "localhost",
+  port: Number(process.env.DB_PORT || 3306),
+  user: process.env.DB_USER || "seee_app",
+  password: process.env.DB_PASSWORD || "",
+  database: process.env.DB_NAME || "seee_activity_hub",
+  charset: "utf8mb4",
+  waitForConnections: true,
+  connectionLimit: 10,
+};
 const db = mysql.createPool(dbConfig);
-const hasConfiguredDatabase=['DB_NAME','DB_USER','DB_PASSWORD'].every(key=>Boolean(process.env[key]));
-const sessionSecret=process.env.SESSION_SECRET||crypto.randomBytes(32).toString('hex');
-const attachmentRoot=path.join(__dirname,'..','storage','task-attachments');
-fs.mkdirSync(attachmentRoot,{recursive:true});
-const taskUpload=multer({storage:multer.memoryStorage(),limits:{fileSize:50*1024*1024,files:1}});
-const attachmentKinds=['clarification','evidence','issue','deliverable'];
-const allowedExtensions=new Set(['.jpg','.jpeg','.png','.gif','.webp','.heic','.pdf','.doc','.docx','.xls','.xlsx','.ppt','.pptx','.txt','.csv','.zip']);
+const hasConfiguredDatabase = ["DB_NAME", "DB_USER", "DB_PASSWORD"].every(
+  (key) => Boolean(process.env[key]),
+);
+const sessionSecret =
+  process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
+const attachmentRoot = path.join(
+  __dirname,
+  "..",
+  "storage",
+  "task-attachments",
+);
+fs.mkdirSync(attachmentRoot, { recursive: true });
+const taskUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024, files: 1 },
+});
+const attachmentKinds = ["clarification", "evidence", "issue", "deliverable"];
+const allowedExtensions = new Set([
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".gif",
+  ".webp",
+  ".heic",
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".xls",
+  ".xlsx",
+  ".ppt",
+  ".pptx",
+  ".txt",
+  ".csv",
+  ".zip",
+]);
 
-app.set('trust proxy',1);
-app.use(helmet({contentSecurityPolicy:false}));
-app.use(express.json({limit:'1mb'}));
-app.use(express.urlencoded({extended:false}));
-const sessionOptions={name:'seee.sid',secret:sessionSecret,resave:false,saveUninitialized:false,cookie:{httpOnly:true,sameSite:'lax',secure:isProduction,maxAge:43200000}};
-if(hasConfiguredDatabase)sessionOptions.store=new MySQLStore(dbConfig);
+app.set("trust proxy", 1);
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: false }));
+const sessionOptions = {
+  name: "seee.sid",
+  secret: sessionSecret,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: isProduction,
+    maxAge: 43200000,
+  },
+};
+if (hasConfiguredDatabase) sessionOptions.store = new MySQLStore(dbConfig);
 app.use(session(sessionOptions));
-app.use(express.static(path.join(__dirname,'..','public')));
-const applicationShell=path.join(__dirname,'..','public','index.html');
+app.use(express.static(path.join(__dirname, "..", "public")));
+const applicationShell = path.join(__dirname, "..", "public", "index.html");
 
-const asyncRoute=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
-const validHttpUrl=value=>{if(!value)return true;try{return ['http:','https:'].includes(new URL(value).protocol)}catch{return false}};
-const auth=(req,res,next)=>req.session.user?next():res.status(401).json({error:'Please sign in to continue.'});
-const admin=(req,res,next)=>req.session.user?.role==='admin'?next():res.status(403).json({error:'Administrator access is required.'});
-const leadershipRoles=['leader','vice_leader'];
-const isLeadership=user=>leadershipRoles.includes(user?.role);
-const manager=(req,res,next)=>req.session.user?.role==='admin'||isLeadership(req.session.user)?next():res.status(403).json({error:'You do not have permission for this action.'});
-const one=rows=>rows[0]||null;
-const ids=value=>[...new Set((Array.isArray(value)?value:[value]).map(Number).filter(Number.isInteger))];
+const asyncRoute = (fn) => (req, res, next) =>
+  Promise.resolve(fn(req, res, next)).catch(next);
+const validHttpUrl = (value) => {
+  if (!value) return true;
+  try {
+    return ["http:", "https:"].includes(new URL(value).protocol);
+  } catch {
+    return false;
+  }
+};
+const auth = (req, res, next) =>
+  req.session.user
+    ? next()
+    : res.status(401).json({ error: "Please sign in to continue." });
+const admin = (req, res, next) =>
+  req.session.user?.role === "admin"
+    ? next()
+    : res.status(403).json({ error: "Administrator access is required." });
+const leadershipRoles = ["leader", "vice_leader"];
+const isLeadership = (user) => leadershipRoles.includes(user?.role);
+const manager = (req, res, next) =>
+  req.session.user?.role === "admin" || isLeadership(req.session.user)
+    ? next()
+    : res
+        .status(403)
+        .json({ error: "You do not have permission for this action." });
+const one = (rows) => rows[0] || null;
+const ids = (value) => [
+  ...new Set(
+    (Array.isArray(value) ? value : [value])
+      .map(Number)
+      .filter(Number.isInteger),
+  ),
+];
 
-function activityScope(user,alias='a'){
-  if(user.role==='admin') return {sql:'1=1',params:[]};
-  if(isLeadership(user)) return {sql:`(${alias}.creator_id=? OR EXISTS(SELECT 1 FROM activity_teams sat JOIN user_teams sut ON sut.team_id=sat.team_id WHERE sat.activity_id=${alias}.id AND sut.user_id=? AND (sut.is_lead=1 OR sut.is_vice_lead=1)))`,params:[user.id,user.id]};
-  return {sql:`(EXISTS(SELECT 1 FROM participants sp WHERE sp.activity_id=${alias}.id AND sp.user_id=? AND sp.state!='declined') OR EXISTS(SELECT 1 FROM tasks st JOIN task_assignees sta ON sta.task_id=st.id WHERE st.activity_id=${alias}.id AND sta.user_id=?) OR EXISTS(SELECT 1 FROM activity_teams sat JOIN user_teams sut ON sut.team_id=sat.team_id WHERE sat.activity_id=${alias}.id AND sut.user_id=?))`,params:[user.id,user.id,user.id]};
+function activityScope(user, alias = "a") {
+  if (user.role === "admin") return { sql: "1=1", params: [] };
+  if (isLeadership(user))
+    return {
+      sql: `(${alias}.creator_id=? OR EXISTS(SELECT 1 FROM activity_teams sat JOIN user_teams sut ON sut.team_id=sat.team_id WHERE sat.activity_id=${alias}.id AND sut.user_id=? AND (sut.is_lead=1 OR sut.is_vice_lead=1)))`,
+      params: [user.id, user.id],
+    };
+  return {
+    sql: `(EXISTS(SELECT 1 FROM participants sp WHERE sp.activity_id=${alias}.id AND sp.user_id=? AND sp.state!='declined') OR EXISTS(SELECT 1 FROM tasks st JOIN task_assignees sta ON sta.task_id=st.id WHERE st.activity_id=${alias}.id AND sta.user_id=?) OR EXISTS(SELECT 1 FROM activity_teams sat JOIN user_teams sut ON sut.team_id=sat.team_id WHERE sat.activity_id=${alias}.id AND sut.user_id=?))`,
+    params: [user.id, user.id, user.id],
+  };
 }
-async function leadsTeam(userId,teamId){const [r]=await db.execute('SELECT 1 FROM user_teams WHERE user_id=? AND team_id=? AND (is_lead=1 OR is_vice_lead=1)',[userId,teamId]);return !!r.length}
-async function belongsToTeam(userId,teamId){const [r]=await db.execute('SELECT 1 FROM user_teams WHERE user_id=? AND team_id=?',[userId,teamId]);return !!r.length}
-async function canManageTeam(user,teamId){return user.role==='admin'||(isLeadership(user)&&await leadsTeam(user.id,teamId))}
-async function managedTeamIds(user){if(user.role==='admin'){const [rows]=await db.execute('SELECT id FROM teams WHERE is_active=1');return rows.map(x=>x.id)}const [rows]=await db.execute('SELECT team_id id FROM user_teams WHERE user_id=? AND (is_lead=1 OR is_vice_lead=1)',[user.id]);return rows.map(x=>x.id)}
-async function canManageUser(user,targetId){if(user.role==='admin')return true;if(!isLeadership(user)||Number(targetId)===Number(user.id))return false;const [rows]=await db.execute("SELECT 1 FROM users u JOIN user_teams theirs ON theirs.user_id=u.id JOIN user_teams mine ON mine.team_id=theirs.team_id AND mine.user_id=? AND (mine.is_lead=1 OR mine.is_vice_lead=1) WHERE u.id=? AND u.role='member' LIMIT 1",[user.id,targetId]);return !!rows.length}
-async function canManageActivity(user,activityId){if(user.role==='admin')return true;const [r]=await db.execute('SELECT 1 FROM activities a JOIN activity_teams at ON at.activity_id=a.id JOIN user_teams ut ON ut.team_id=at.team_id WHERE a.id=? AND (a.creator_id=? OR (ut.user_id=? AND (ut.is_lead=1 OR ut.is_vice_lead=1))) LIMIT 1',[activityId,user.id,user.id]);return !!r.length}
-async function visibleActivity(user,activityId){const s=activityScope(user);const [r]=await db.execute(`SELECT 1 FROM activities a WHERE a.id=? AND ${s.sql}`,[activityId,...s.params]);return !!r.length}
+async function leadsTeam(userId, teamId) {
+  const [r] = await db.execute(
+    "SELECT 1 FROM user_teams WHERE user_id=? AND team_id=? AND (is_lead=1 OR is_vice_lead=1)",
+    [userId, teamId],
+  );
+  return !!r.length;
+}
+async function belongsToTeam(userId, teamId) {
+  const [r] = await db.execute(
+    "SELECT 1 FROM user_teams WHERE user_id=? AND team_id=?",
+    [userId, teamId],
+  );
+  return !!r.length;
+}
+async function canManageTeam(user, teamId) {
+  return (
+    user.role === "admin" ||
+    (isLeadership(user) && (await leadsTeam(user.id, teamId)))
+  );
+}
+async function managedTeamIds(user) {
+  if (user.role === "admin") {
+    const [rows] = await db.execute("SELECT id FROM teams WHERE is_active=1");
+    return rows.map((x) => x.id);
+  }
+  const [rows] = await db.execute(
+    "SELECT team_id id FROM user_teams WHERE user_id=? AND (is_lead=1 OR is_vice_lead=1)",
+    [user.id],
+  );
+  return rows.map((x) => x.id);
+}
+async function canManageUser(user, targetId) {
+  if (user.role === "admin") return true;
+  if (!isLeadership(user) || Number(targetId) === Number(user.id)) return false;
+  const [rows] = await db.execute(
+    "SELECT 1 FROM users u JOIN user_teams theirs ON theirs.user_id=u.id JOIN user_teams mine ON mine.team_id=theirs.team_id AND mine.user_id=? AND (mine.is_lead=1 OR mine.is_vice_lead=1) WHERE u.id=? AND u.role='member' LIMIT 1",
+    [user.id, targetId],
+  );
+  return !!rows.length;
+}
+async function canManageActivity(user, activityId) {
+  if (user.role === "admin") return true;
+  const [r] = await db.execute(
+    "SELECT 1 FROM activities a JOIN activity_teams at ON at.activity_id=a.id JOIN user_teams ut ON ut.team_id=at.team_id WHERE a.id=? AND (a.creator_id=? OR (ut.user_id=? AND (ut.is_lead=1 OR ut.is_vice_lead=1))) LIMIT 1",
+    [activityId, user.id, user.id],
+  );
+  return !!r.length;
+}
+async function visibleActivity(user, activityId) {
+  const s = activityScope(user);
+  const [r] = await db.execute(
+    `SELECT 1 FROM activities a WHERE a.id=? AND ${s.sql}`,
+    [activityId, ...s.params],
+  );
+  return !!r.length;
+}
 
-app.patch('/api/activities/:id',auth,manager,asyncRoute(async(req,res,next)=>{if(!Object.hasOwn(req.body,'proposal_document_url'))return next();if(!(await canManageActivity(req.session.user,req.params.id)))return res.status(403).json({error:'You cannot manage this activity.'});const proposalDocumentUrl=String(req.body.proposal_document_url||'').trim();if(!validHttpUrl(proposalDocumentUrl))return res.status(400).json({error:'The activity proposal document must be a valid http:// or https:// link.'});await db.execute('UPDATE activities SET proposal_document_url=? WHERE id=?',[proposalDocumentUrl||null,req.params.id]);delete req.body.proposal_document_url;next()}));
+app.patch(
+  "/api/activities/:id",
+  auth,
+  manager,
+  asyncRoute(async (req, res, next) => {
+    if (!Object.hasOwn(req.body, "proposal_document_url")) return next();
+    if (!(await canManageActivity(req.session.user, req.params.id)))
+      return res
+        .status(403)
+        .json({ error: "You cannot manage this activity." });
+    const proposalDocumentUrl = String(
+      req.body.proposal_document_url || "",
+    ).trim();
+    if (!validHttpUrl(proposalDocumentUrl))
+      return res
+        .status(400)
+        .json({
+          error:
+            "The activity proposal document must be a valid http:// or https:// link.",
+        });
+    await db.execute(
+      "UPDATE activities SET proposal_document_url=? WHERE id=?",
+      [proposalDocumentUrl || null, req.params.id],
+    );
+    delete req.body.proposal_document_url;
+    next();
+  }),
+);
 
-app.get('/api/session',(req,res)=>res.json({user:req.session.user||null}));
-app.get('/api/push/config',auth,(_req,res)=>{res.set('Cache-Control','no-store');res.json({enabled:push.enabled,appId:push.enabled?push.appId:null})});
-app.get('/api/version',(_req,res)=>{res.set('Cache-Control','no-store');res.json({version:packageInfo.version,build:'2026-08-23.1'})});
-app.get('/api/health',asyncRoute(async(_req,res)=>{try{await db.query('SELECT 1');res.json({status:'ok'})}catch(error){logger.error('Database health check failed.',error);throw error}}));
-app.post('/api/email/test',auth,admin,asyncRoute(async(req,res)=>{const to=String(req.body.to||'').trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)||to.length>254)return res.status(400).json({error:'Vui lòng nhập địa chỉ email hợp lệ.'});try{const result=await mailer.sendTestEmail(to,req.session.user.name);res.json({ok:true,to,message_id:result.messageId})}catch(error){res.status(502).json({error:`Không thể gửi email kiểm tra: ${error.response||error.message||'Lỗi không xác định'}`})}}));
-app.post('/api/login',asyncRoute(async(req,res)=>{const email=String(req.body.email||'').trim().toLowerCase();const [rows]=await db.execute('SELECT id,name,email,password_hash,role,phone,avatar_color FROM users WHERE email=? AND is_active=1',[email]);const user=one(rows);if(!user||!(await bcrypt.compare(String(req.body.password||''),user.password_hash)))return res.status(401).json({error:'Email or password is incorrect.'});delete user.password_hash;req.session.user=user;res.json({user})}));
-app.post('/api/logout',(req,res,next)=>req.session.destroy(err=>err?next(err):res.json({ok:true})));
-app.patch('/api/account',auth,asyncRoute(async(req,res)=>{const email=String(req.body.email||'').trim().toLowerCase(),phone=String(req.body.phone||'').trim(),avatarColor=String(req.body.avatar_color||'');if(!email||!/^#[0-9a-f]{6}$/i.test(avatarColor))return res.status(400).json({error:'A valid email and avatar color are required.'});const values=[email,phone||null,avatarColor],sets=['email=?','phone=?','avatar_color=?'];if(req.body.password){if(String(req.body.password).length<8)return res.status(400).json({error:'Password must contain at least 8 characters.'});sets.push('password_hash=?');values.push(await bcrypt.hash(String(req.body.password),10))}values.push(req.session.user.id);await db.execute(`UPDATE users SET ${sets.join(',')} WHERE id=?`,values);Object.assign(req.session.user,{email,phone:phone||null,avatar_color:avatarColor});res.json({user:req.session.user})}));
+app.get("/api/session", (req, res) =>
+  res.json({ user: req.session.user || null }),
+);
+app.get("/api/push/config", auth, (_req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json({ enabled: push.enabled, appId: push.enabled ? push.appId : null });
+});
+app.get("/api/version", (_req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json({ version: packageInfo.version, build: "2026-08-23.1" });
+});
+app.get(
+  "/api/health",
+  asyncRoute(async (_req, res) => {
+    try {
+      await db.query("SELECT 1");
+      res.json({ status: "ok" });
+    } catch (error) {
+      logger.error("Database health check failed.", error);
+      throw error;
+    }
+  }),
+);
+app.post(
+  "/api/email/test",
+  auth,
+  admin,
+  asyncRoute(async (req, res) => {
+    const to = String(req.body.to || "")
+      .trim()
+      .toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to) || to.length > 254)
+      return res
+        .status(400)
+        .json({ error: "Vui lòng nhập địa chỉ email hợp lệ." });
+    try {
+      const result = await mailer.sendTestEmail(to, req.session.user.name);
+      res.json({ ok: true, to, message_id: result.messageId });
+    } catch (error) {
+      res
+        .status(502)
+        .json({
+          error: `Không thể gửi email kiểm tra: ${error.response || error.message || "Lỗi không xác định"}`,
+        });
+    }
+  }),
+);
+app.post(
+  "/api/login",
+  asyncRoute(async (req, res) => {
+    const email = String(req.body.email || "")
+      .trim()
+      .toLowerCase();
+    const [rows] = await db.execute(
+      "SELECT id,name,email,password_hash,role,phone,avatar_color FROM users WHERE email=? AND is_active=1",
+      [email],
+    );
+    const user = one(rows);
+    if (
+      !user ||
+      !(await bcrypt.compare(
+        String(req.body.password || ""),
+        user.password_hash,
+      ))
+    )
+      return res.status(401).json({ error: "Email or password is incorrect." });
+    delete user.password_hash;
+    req.session.user = user;
+    res.json({ user });
+  }),
+);
+app.post("/api/logout", (req, res, next) =>
+  req.session.destroy((err) => (err ? next(err) : res.json({ ok: true }))),
+);
+app.patch(
+  "/api/account",
+  auth,
+  asyncRoute(async (req, res) => {
+    const email = String(req.body.email || "")
+        .trim()
+        .toLowerCase(),
+      phone = String(req.body.phone || "").trim(),
+      avatarColor = String(req.body.avatar_color || "");
+    if (!email || !/^#[0-9a-f]{6}$/i.test(avatarColor))
+      return res
+        .status(400)
+        .json({ error: "A valid email and avatar color are required." });
+    const values = [email, phone || null, avatarColor],
+      sets = ["email=?", "phone=?", "avatar_color=?"];
+    if (req.body.password) {
+      if (String(req.body.password).length < 8)
+        return res
+          .status(400)
+          .json({ error: "Password must contain at least 8 characters." });
+      sets.push("password_hash=?");
+      values.push(await bcrypt.hash(String(req.body.password), 10));
+    }
+    values.push(req.session.user.id);
+    await db.execute(`UPDATE users SET ${sets.join(",")} WHERE id=?`, values);
+    Object.assign(req.session.user, {
+      email,
+      phone: phone || null,
+      avatar_color: avatarColor,
+    });
+    res.json({ user: req.session.user });
+  }),
+);
 
-app.get('/api/bootstrap',auth,asyncRoute(async(req,res)=>{
-  const user=req.session.user,s=activityScope(user);
-  const taskScope=user.role==='admin'?'1=1':isLeadership(user)?`(EXISTS(SELECT 1 FROM user_teams x WHERE x.user_id=? AND x.team_id=t.team_id AND (x.is_lead=1 OR x.is_vice_lead=1)) OR EXISTS(SELECT 1 FROM task_assignees x WHERE x.task_id=t.id AND x.user_id=?))`:`EXISTS(SELECT 1 FROM task_assignees x WHERE x.task_id=t.id AND x.user_id=?)`;
-  const taskParams=user.role==='admin'?[]:isLeadership(user)?[user.id,user.id]:[user.id];
-  const [[statRows],[upcoming],[tasks],[activity],[teams]]=await Promise.all([
-    db.execute(`SELECT COUNT(DISTINCT CASE WHEN a.status IN ('approved','active') THEN a.id END) activeActivities,COUNT(DISTINCT CASE WHEN t.status!='done' THEN t.id END) openTasks,COUNT(DISTINCT CASE WHEN t.status!='done' AND t.deadline<CURDATE() THEN t.id END) overdueTasks,COUNT(DISTINCT CASE WHEN t.status='done' AND MONTH(t.completed_at)=MONTH(CURDATE()) AND YEAR(t.completed_at)=YEAR(CURDATE()) THEN t.id END) completedMonth FROM activities a LEFT JOIN tasks t ON t.activity_id=a.id WHERE ${s.sql}`,s.params),
-    db.execute(`SELECT a.*,te.name team_name,te.color team_color,GROUP_CONCAT(DISTINCT involved.name ORDER BY involved.name SEPARATOR ', ') team_names,COUNT(DISTINCT t.id) task_count,COUNT(DISTINCT CASE WHEN t.status='done' THEN t.id END) done_count,COUNT(DISTINCT p.user_id) participant_count FROM activities a JOIN teams te ON te.id=a.team_id JOIN activity_teams ats ON ats.activity_id=a.id JOIN teams involved ON involved.id=ats.team_id LEFT JOIN tasks t ON t.activity_id=a.id LEFT JOIN participants p ON p.activity_id=a.id AND p.state='confirmed' WHERE a.status IN ('proposed','approved','active') AND ${s.sql} GROUP BY a.id ORDER BY a.deadline LIMIT 5`,s.params),
-    db.execute(`SELECT t.*,a.title activity_title,te.name team_name,GROUP_CONCAT(DISTINCT u.name ORDER BY u.name SEPARATOR ', ') assignee_name,GROUP_CONCAT(DISTINCT u.id ORDER BY u.id) assignee_ids FROM tasks t JOIN activities a ON a.id=t.activity_id JOIN teams te ON te.id=t.team_id LEFT JOIN task_assignees ta ON ta.task_id=t.id LEFT JOIN users u ON u.id=ta.user_id WHERE ${taskScope} AND t.status!='done' GROUP BY t.id ORDER BY t.deadline LIMIT 8`,taskParams),
-    db.execute(`SELECT n.body,n.kind,n.created_at,usr.name user_name,usr.avatar_color,a.title activity_title,a.id activity_id FROM updates n JOIN users usr ON usr.id=n.user_id JOIN activities a ON a.id=n.activity_id WHERE ${s.sql} ORDER BY n.created_at DESC LIMIT 7`,s.params),
-    db.execute(`SELECT t.*,EXISTS(SELECT 1 FROM user_teams ux WHERE ux.team_id=t.id AND ux.user_id=? AND (ux.is_lead=1 OR ux.is_vice_lead=1)) can_manage FROM teams t WHERE t.is_active=1 ORDER BY t.sort_order,t.name`,[user.id])
-  ]);
-  res.json({stats:one(statRows),upcoming,tasks,activity,teams,capabilities:{canCreateActivity:user.role==='admin'||isLeadership(user),canCreateAccount:user.role==='admin'}})
-}));
+app.get(
+  "/api/bootstrap",
+  auth,
+  asyncRoute(async (req, res) => {
+    const user = req.session.user,
+      s = activityScope(user);
+    const taskScope =
+      user.role === "admin"
+        ? "1=1"
+        : isLeadership(user)
+          ? `(EXISTS(SELECT 1 FROM user_teams x WHERE x.user_id=? AND x.team_id=t.team_id AND (x.is_lead=1 OR x.is_vice_lead=1)) OR EXISTS(SELECT 1 FROM task_assignees x WHERE x.task_id=t.id AND x.user_id=?))`
+          : `EXISTS(SELECT 1 FROM task_assignees x WHERE x.task_id=t.id AND x.user_id=?)`;
+    const taskParams =
+      user.role === "admin"
+        ? []
+        : isLeadership(user)
+          ? [user.id, user.id]
+          : [user.id];
+    const [[statRows], [upcoming], [tasks], [activity], [teams]] =
+      await Promise.all([
+        db.execute(
+          `SELECT COUNT(DISTINCT CASE WHEN a.status IN ('approved','active') THEN a.id END) activeActivities,COUNT(DISTINCT CASE WHEN t.status!='done' THEN t.id END) openTasks,COUNT(DISTINCT CASE WHEN t.status!='done' AND t.deadline<CURDATE() THEN t.id END) overdueTasks,COUNT(DISTINCT CASE WHEN t.status='done' AND MONTH(t.completed_at)=MONTH(CURDATE()) AND YEAR(t.completed_at)=YEAR(CURDATE()) THEN t.id END) completedMonth FROM activities a LEFT JOIN tasks t ON t.activity_id=a.id WHERE ${s.sql}`,
+          s.params,
+        ),
+        db.execute(
+          `SELECT a.*,te.name team_name,te.color team_color,GROUP_CONCAT(DISTINCT involved.name ORDER BY involved.name SEPARATOR ', ') team_names,COUNT(DISTINCT t.id) task_count,COUNT(DISTINCT CASE WHEN t.status='done' THEN t.id END) done_count,COUNT(DISTINCT p.user_id) participant_count FROM activities a JOIN teams te ON te.id=a.team_id JOIN activity_teams ats ON ats.activity_id=a.id JOIN teams involved ON involved.id=ats.team_id LEFT JOIN tasks t ON t.activity_id=a.id LEFT JOIN participants p ON p.activity_id=a.id AND p.state='confirmed' WHERE a.status IN ('proposed','approved','active') AND ${s.sql} GROUP BY a.id ORDER BY a.deadline LIMIT 5`,
+          s.params,
+        ),
+        db.execute(
+          `SELECT t.*,a.title activity_title,te.name team_name,GROUP_CONCAT(DISTINCT u.name ORDER BY u.name SEPARATOR ', ') assignee_name,GROUP_CONCAT(DISTINCT u.id ORDER BY u.id) assignee_ids FROM tasks t JOIN activities a ON a.id=t.activity_id JOIN teams te ON te.id=t.team_id LEFT JOIN task_assignees ta ON ta.task_id=t.id LEFT JOIN users u ON u.id=ta.user_id WHERE ${taskScope} AND t.status!='done' GROUP BY t.id ORDER BY t.deadline LIMIT 8`,
+          taskParams,
+        ),
+        db.execute(
+          `SELECT n.body,n.kind,n.created_at,usr.name user_name,usr.avatar_color,a.title activity_title,a.id activity_id FROM updates n JOIN users usr ON usr.id=n.user_id JOIN activities a ON a.id=n.activity_id WHERE ${s.sql} ORDER BY n.created_at DESC LIMIT 7`,
+          s.params,
+        ),
+        db.execute(
+          `SELECT t.*,EXISTS(SELECT 1 FROM user_teams ux WHERE ux.team_id=t.id AND ux.user_id=? AND (ux.is_lead=1 OR ux.is_vice_lead=1)) can_manage FROM teams t WHERE t.is_active=1 ORDER BY t.sort_order,t.name`,
+          [user.id],
+        ),
+      ]);
+    res.json({
+      stats: one(statRows),
+      upcoming,
+      tasks,
+      activity,
+      teams,
+      capabilities: {
+        canCreateActivity: user.role === "admin" || isLeadership(user),
+        canCreateAccount: user.role === "admin",
+      },
+    });
+  }),
+);
 
-app.get('/api/activities',auth,asyncRoute(async(req,res)=>{const q=`%${String(req.query.q||'')}%`,status=String(req.query.status||'all'),type=String(req.query.type||'all'),s=activityScope(req.session.user);const [rows]=await db.execute(`SELECT a.*,te.name team_name,te.color team_color,u.name creator_name,GROUP_CONCAT(DISTINCT involved.name ORDER BY involved.name SEPARATOR ', ') team_names,COUNT(DISTINCT t.id) task_count,COUNT(DISTINCT CASE WHEN t.status='done' THEN t.id END) done_count,COUNT(DISTINCT p.user_id) participant_count FROM activities a JOIN teams te ON te.id=a.team_id JOIN users u ON u.id=a.creator_id JOIN activity_teams ats ON ats.activity_id=a.id JOIN teams involved ON involved.id=ats.team_id LEFT JOIN tasks t ON t.activity_id=a.id LEFT JOIN participants p ON p.activity_id=a.id AND p.state='confirmed' WHERE ${s.sql} AND (a.title LIKE ? OR a.description LIKE ?) AND (?='all' OR a.status=?) AND (?='all' OR a.type=?) GROUP BY a.id ORDER BY FIELD(a.status,'active','approved','proposed','completed','cancelled'),a.deadline`,[...s.params,q,q,status,status,type,type]);res.json(rows)}));
+app.get(
+  "/api/activities",
+  auth,
+  asyncRoute(async (req, res) => {
+    const q = `%${String(req.query.q || "")}%`,
+      status = String(req.query.status || "all"),
+      type = String(req.query.type || "all"),
+      s = activityScope(req.session.user);
+    const [rows] = await db.execute(
+      `SELECT a.*,te.name team_name,te.color team_color,u.name creator_name,GROUP_CONCAT(DISTINCT involved.name ORDER BY involved.name SEPARATOR ', ') team_names,COUNT(DISTINCT t.id) task_count,COUNT(DISTINCT CASE WHEN t.status='done' THEN t.id END) done_count,COUNT(DISTINCT p.user_id) participant_count FROM activities a JOIN teams te ON te.id=a.team_id JOIN users u ON u.id=a.creator_id JOIN activity_teams ats ON ats.activity_id=a.id JOIN teams involved ON involved.id=ats.team_id LEFT JOIN tasks t ON t.activity_id=a.id LEFT JOIN participants p ON p.activity_id=a.id AND p.state='confirmed' WHERE ${s.sql} AND (a.title LIKE ? OR a.description LIKE ?) AND (?='all' OR a.status=?) AND (?='all' OR a.type=?) GROUP BY a.id ORDER BY FIELD(a.status,'active','approved','proposed','completed','cancelled'),a.deadline`,
+      [...s.params, q, q, status, status, type, type],
+    );
+    res.json(rows);
+  }),
+);
 
-app.post('/api/activities',auth,manager,asyncRoute(async(req,res)=>{const {title,description,type,start_date,deadline,priority,requested_by,location}=req.body,proposalDocumentUrl=String(req.body.proposal_document_url||'').trim();const teamIds=ids(req.body.team_ids?.length?req.body.team_ids:req.body.team_id),primary=Number(req.body.team_id||teamIds[0]);if(!title||!description||!deadline||!teamIds.length||!teamIds.includes(primary)||!['event','assigned'].includes(type))return res.status(400).json({error:'Complete all required fields and select at least one team.'});if(!validHttpUrl(proposalDocumentUrl))return res.status(400).json({error:'The activity proposal document must be a valid http:// or https:// link.'});if(isLeadership(req.session.user)){for(const teamId of teamIds)if(!(await leadsTeam(req.session.user.id,teamId)))return res.status(403).json({error:'Team leaders and vice leaders may only propose work for teams they lead.'})}const conn=await db.getConnection();try{await conn.beginTransaction();const [result]=await conn.execute('INSERT INTO activities(title,description,proposal_document_url,type,team_id,creator_id,start_date,deadline,priority,requested_by,location) VALUES(?,?,?,?,?,?,?,?,?,?,?)',[title,description,proposalDocumentUrl||null,type,primary,req.session.user.id,start_date||null,deadline,priority||'medium',requested_by||null,location||null]);for(const teamId of teamIds)await conn.execute('INSERT INTO activity_teams(activity_id,team_id,role,responsibility) VALUES(?,?,?,?)',[result.insertId,teamId,teamId===primary?'primary':'supporting',teamId===primary?'Coordinates the activity':'Supports the activity']);await conn.commit();res.status(201).json({id:result.insertId});try{const [admins]=await db.execute("SELECT id,name,email FROM users WHERE role='admin' AND is_active=1");const activity={id:result.insertId,title,type,start_date,deadline,priority:priority||'medium'};for(const adminUser of admins)mailer.notifyActivityProposed(adminUser,activity,req.session.user.name)}catch(error){logger.error(`Unable to prepare activity ${result.insertId} proposal email notifications.`,error)}}catch(e){await conn.rollback();throw e}finally{conn.release()}}));
+app.post(
+  "/api/activities",
+  auth,
+  manager,
+  asyncRoute(async (req, res) => {
+    const {
+        title,
+        description,
+        type,
+        start_date,
+        deadline,
+        priority,
+        requested_by,
+        location,
+      } = req.body,
+      proposalDocumentUrl = String(req.body.proposal_document_url || "").trim();
+    const teamIds = ids(
+        req.body.team_ids?.length ? req.body.team_ids : req.body.team_id,
+      ),
+      primary = Number(req.body.team_id || teamIds[0]);
+    if (
+      !title ||
+      !description ||
+      !deadline ||
+      !teamIds.length ||
+      !teamIds.includes(primary) ||
+      !["event", "assigned"].includes(type)
+    )
+      return res
+        .status(400)
+        .json({
+          error: "Complete all required fields and select at least one team.",
+        });
+    if (!validHttpUrl(proposalDocumentUrl))
+      return res
+        .status(400)
+        .json({
+          error:
+            "The activity proposal document must be a valid http:// or https:// link.",
+        });
+    if (isLeadership(req.session.user)) {
+      for (const teamId of teamIds)
+        if (!(await leadsTeam(req.session.user.id, teamId)))
+          return res
+            .status(403)
+            .json({
+              error:
+                "Team leaders and vice leaders may only propose work for teams they lead.",
+            });
+    }
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+      const [result] = await conn.execute(
+        "INSERT INTO activities(title,description,proposal_document_url,type,team_id,creator_id,start_date,deadline,priority,requested_by,location) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+        [
+          title,
+          description,
+          proposalDocumentUrl || null,
+          type,
+          primary,
+          req.session.user.id,
+          start_date || null,
+          deadline,
+          priority || "medium",
+          requested_by || null,
+          location || null,
+        ],
+      );
+      for (const teamId of teamIds)
+        await conn.execute(
+          "INSERT INTO activity_teams(activity_id,team_id,role,responsibility) VALUES(?,?,?,?)",
+          [
+            result.insertId,
+            teamId,
+            teamId === primary ? "primary" : "supporting",
+            teamId === primary
+              ? "Coordinates the activity"
+              : "Supports the activity",
+          ],
+        );
+      await conn.commit();
+      res.status(201).json({ id: result.insertId });
+      try {
+        const [admins] = await db.execute(
+          "SELECT id,name,email FROM users WHERE role='admin' AND is_active=1",
+        );
+        const activity = {
+          id: result.insertId,
+          title,
+          type,
+          start_date,
+          deadline,
+          priority: priority || "medium",
+        };
+        for (const adminUser of admins)
+          mailer.notifyActivityProposed(
+            adminUser,
+            activity,
+            req.session.user.name,
+          );
+      } catch (error) {
+        logger.error(
+          `Unable to prepare activity ${result.insertId} proposal email notifications.`,
+          error,
+        );
+      }
+    } catch (e) {
+      await conn.rollback();
+      throw e;
+    } finally {
+      conn.release();
+    }
+  }),
+);
 
-app.get('/api/activities/:id',auth,asyncRoute(async(req,res)=>{if(!(await visibleActivity(req.session.user,req.params.id)))return res.status(404).json({error:'Activity not found.'});const [[activities],[activityTeams],[tasks],[participants],[updates],[people],[attachments]]=await Promise.all([
-  db.execute('SELECT a.*,te.name team_name,te.color team_color,u.name creator_name FROM activities a JOIN teams te ON te.id=a.team_id JOIN users u ON u.id=a.creator_id WHERE a.id=?',[req.params.id]),
-  db.execute('SELECT at.*,t.name,t.color,u.name contact_name FROM activity_teams at JOIN teams t ON t.id=at.team_id LEFT JOIN users u ON u.id=at.contact_user_id WHERE at.activity_id=? ORDER BY at.role,t.name',[req.params.id]),
-  db.execute(`SELECT t.*,te.name team_name,GROUP_CONCAT(DISTINCT u.name ORDER BY u.name SEPARATOR ', ') assignee_name,GROUP_CONCAT(DISTINCT u.id ORDER BY u.id) assignee_ids FROM tasks t JOIN teams te ON te.id=t.team_id LEFT JOIN task_assignees ta ON ta.task_id=t.id LEFT JOIN users u ON u.id=ta.user_id WHERE t.activity_id=? GROUP BY t.id ORDER BY FIELD(t.stage,'before','during','after','general'),t.deadline`,[req.params.id]),
-  db.execute("SELECT p.*,u.name,u.role,u.avatar_color FROM participants p JOIN users u ON u.id=p.user_id WHERE p.activity_id=? ORDER BY FIELD(p.state,'confirmed','volunteered','declined'),u.name",[req.params.id]),
-  db.execute('SELECT n.*,u.name user_name,u.avatar_color FROM updates n JOIN users u ON u.id=n.user_id WHERE n.activity_id=? ORDER BY n.created_at DESC',[req.params.id]),
-  db.execute("SELECT u.id,u.name,u.role,MIN(ut.team_id) team_id,GROUP_CONCAT(DISTINCT t.id ORDER BY t.id) team_ids,GROUP_CONCAT(DISTINCT t.name ORDER BY t.name SEPARATOR ', ') teams FROM users u LEFT JOIN user_teams ut ON ut.user_id=u.id LEFT JOIN teams t ON t.id=ut.team_id LEFT JOIN activity_teams at ON at.team_id=ut.team_id WHERE u.is_active=1 AND (?='admin' OR (at.activity_id=? AND EXISTS(SELECT 1 FROM user_teams lead_team WHERE lead_team.user_id=? AND lead_team.team_id=ut.team_id AND (lead_team.is_lead=1 OR lead_team.is_vice_lead=1)))) GROUP BY u.id ORDER BY u.name",[req.session.user.role,req.params.id,req.session.user.id]),
-  db.execute('SELECT x.id,x.task_id,x.kind,x.label,x.link_url,x.original_name,x.mime_type,x.size_bytes,x.created_at,u.name user_name FROM task_attachments x JOIN users u ON u.id=x.user_id JOIN tasks t ON t.id=x.task_id WHERE t.activity_id=? ORDER BY x.created_at DESC',[req.params.id])
-]);const activity=activities[0];for(const task of tasks){task.recorded_stage=task.stage;if(activity.type==='assigned')task.stage='general';else if(task.stage==='general')task.stage='before'}for(const person of people){person.team_ids=String(person.team_ids||'').split(',').filter(Boolean).map(Number);person.team_names=String(person.teams||'').split(',').map(x=>x.trim()).filter(Boolean)}res.json({activity,activityTeams,tasks,participants,updates,people,attachments,canManage:await canManageActivity(req.session.user,req.params.id)})}));
+app.get(
+  "/api/activities/:id",
+  auth,
+  asyncRoute(async (req, res) => {
+    if (!(await visibleActivity(req.session.user, req.params.id)))
+      return res.status(404).json({ error: "Activity not found." });
+    const [
+      [activities],
+      [activityTeams],
+      [tasks],
+      [participants],
+      [updates],
+      [people],
+      [attachments],
+    ] = await Promise.all([
+      db.execute(
+        "SELECT a.*,te.name team_name,te.color team_color,u.name creator_name FROM activities a JOIN teams te ON te.id=a.team_id JOIN users u ON u.id=a.creator_id WHERE a.id=?",
+        [req.params.id],
+      ),
+      db.execute(
+        "SELECT at.*,t.name,t.color,u.name contact_name FROM activity_teams at JOIN teams t ON t.id=at.team_id LEFT JOIN users u ON u.id=at.contact_user_id WHERE at.activity_id=? ORDER BY at.role,t.name",
+        [req.params.id],
+      ),
+      db.execute(
+        `SELECT t.*,te.name team_name,GROUP_CONCAT(DISTINCT u.name ORDER BY u.name SEPARATOR ', ') assignee_name,GROUP_CONCAT(DISTINCT u.id ORDER BY u.id) assignee_ids FROM tasks t JOIN teams te ON te.id=t.team_id LEFT JOIN task_assignees ta ON ta.task_id=t.id LEFT JOIN users u ON u.id=ta.user_id WHERE t.activity_id=? GROUP BY t.id ORDER BY FIELD(t.stage,'before','during','after','general'),t.deadline`,
+        [req.params.id],
+      ),
+      db.execute(
+        "SELECT p.*,u.name,u.role,u.avatar_color FROM participants p JOIN users u ON u.id=p.user_id WHERE p.activity_id=? ORDER BY FIELD(p.state,'confirmed','volunteered','declined'),u.name",
+        [req.params.id],
+      ),
+      db.execute(
+        "SELECT n.*,u.name user_name,u.avatar_color FROM updates n JOIN users u ON u.id=n.user_id WHERE n.activity_id=? ORDER BY n.created_at DESC",
+        [req.params.id],
+      ),
+      db.execute(
+        "SELECT u.id,u.name,u.role,MIN(ut.team_id) team_id,GROUP_CONCAT(DISTINCT t.id ORDER BY t.id) team_ids,GROUP_CONCAT(DISTINCT t.name ORDER BY t.name SEPARATOR ', ') teams FROM users u LEFT JOIN user_teams ut ON ut.user_id=u.id LEFT JOIN teams t ON t.id=ut.team_id LEFT JOIN activity_teams at ON at.team_id=ut.team_id WHERE u.is_active=1 AND (?='admin' OR (at.activity_id=? AND EXISTS(SELECT 1 FROM user_teams lead_team WHERE lead_team.user_id=? AND lead_team.team_id=ut.team_id AND (lead_team.is_lead=1 OR lead_team.is_vice_lead=1)))) GROUP BY u.id ORDER BY u.name",
+        [req.session.user.role, req.params.id, req.session.user.id],
+      ),
+      db.execute(
+        "SELECT x.id,x.task_id,x.kind,x.label,x.link_url,x.original_name,x.mime_type,x.size_bytes,x.created_at,u.name user_name FROM task_attachments x JOIN users u ON u.id=x.user_id JOIN tasks t ON t.id=x.task_id WHERE t.activity_id=? ORDER BY x.created_at DESC",
+        [req.params.id],
+      ),
+    ]);
+    const activity = activities[0];
+    for (const task of tasks) {
+      task.recorded_stage = task.stage;
+      if (activity.type === "assigned") task.stage = "general";
+      else if (task.stage === "general") task.stage = "before";
+    }
+    for (const person of people) {
+      person.team_ids = String(person.team_ids || "")
+        .split(",")
+        .filter(Boolean)
+        .map(Number);
+      person.team_names = String(person.teams || "")
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean);
+    }
+    res.json({
+      activity,
+      activityTeams,
+      tasks,
+      participants,
+      updates,
+      people,
+      attachments,
+      canManage: await canManageActivity(req.session.user, req.params.id),
+    });
+  }),
+);
 
-app.patch('/api/activities/:id',auth,manager,asyncRoute(async(req,res)=>{if(!(await canManageActivity(req.session.user,req.params.id)))return res.status(403).json({error:'You cannot manage this activity.'});const teamEdit=req.body.team_ids!==undefined||req.body.team_id!==undefined;if(teamEdit&&req.session.user.role!=='admin')return res.status(403).json({error:'Only administrators can change involved teams.'});const allowed=['status','priority','result_summary','title','description','type','deadline','start_date','location','requested_by'];const entries=Object.entries(req.body).filter(([key])=>allowed.includes(key));if(['title','description','deadline'].some(key=>Object.hasOwn(req.body,key)&&!String(req.body[key]||'').trim()))return res.status(400).json({error:'Title, description and deadline cannot be empty.'});let teamIds=[],primary=0;if(teamEdit){teamIds=ids(req.body.team_ids),primary=Number(req.body.team_id);if(!teamIds.length||!teamIds.includes(primary))return res.status(400).json({error:'Select involved teams and a coordinating team.'});const [validTeams]=await db.query(`SELECT id FROM teams WHERE is_active=1 AND id IN (${teamIds.map(()=>'?').join(',')})`,teamIds);if(validTeams.length!==teamIds.length)return res.status(400).json({error:'One or more selected teams are unavailable.'});const [taskTeams]=await db.query(`SELECT DISTINCT team_id FROM tasks WHERE activity_id=? AND team_id NOT IN (${teamIds.map(()=>'?').join(',')})`,[req.params.id,...teamIds]);if(taskTeams.length)return res.status(409).json({error:'A team with existing tasks cannot be removed. Reassign those tasks first.'})}if(!entries.length&&!teamEdit)return res.status(400).json({error:'No valid fields supplied.'});const conn=await db.getConnection();try{await conn.beginTransaction();if(entries.length)await conn.execute(`UPDATE activities SET ${entries.map(([k])=>`${k}=?`).join(',')} WHERE id=?`,[...entries.map(([k,v])=>['start_date','location','requested_by','result_summary'].includes(k)?v||null:v),req.params.id]);if(teamEdit){await conn.execute('UPDATE activities SET team_id=? WHERE id=?',[primary,req.params.id]);for(const teamId of teamIds)await conn.execute("INSERT INTO activity_teams(activity_id,team_id,role,responsibility) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE role=VALUES(role)",[req.params.id,teamId,teamId===primary?'primary':'supporting',teamId===primary?'Coordinates the activity':'Supports the activity']);await conn.query(`DELETE FROM activity_teams WHERE activity_id=? AND team_id NOT IN (${teamIds.map(()=>'?').join(',')})`,[req.params.id,...teamIds]);await conn.execute("UPDATE activity_teams SET role=IF(team_id=?,'primary','supporting') WHERE activity_id=?",[primary,req.params.id])}await conn.commit();res.json({ok:true})}catch(e){await conn.rollback();throw e}finally{conn.release()}}));
-app.post('/api/activities/:id/volunteer',auth,asyncRoute(async(req,res)=>{if(!(await visibleActivity(req.session.user,req.params.id)))return res.status(404).json({error:'Activity not found.'});await db.execute("INSERT INTO participants(activity_id,user_id,state) VALUES(?,?,'volunteered') ON DUPLICATE KEY UPDATE state='volunteered'",[req.params.id,req.session.user.id]);res.json({ok:true})}));
-app.post('/api/activities/:id/participants',auth,manager,asyncRoute(async(req,res)=>{if(!(await canManageActivity(req.session.user,req.params.id)))return res.status(403).json({error:'You cannot manage participants for this activity.'});const userIds=ids(req.body.user_ids);if(!userIds.length)return res.status(400).json({error:'Select at least one member.'});for(const userId of userIds){let sql='SELECT 1 FROM users WHERE id=? AND is_active=1',params=[userId];if(isLeadership(req.session.user)){sql='SELECT 1 FROM users u JOIN user_teams member_team ON member_team.user_id=u.id JOIN user_teams leader_team ON leader_team.team_id=member_team.team_id AND leader_team.user_id=? AND (leader_team.is_lead=1 OR leader_team.is_vice_lead=1) JOIN activity_teams at ON at.team_id=member_team.team_id AND at.activity_id=? WHERE u.id=? AND u.is_active=1 LIMIT 1';params=[req.session.user.id,req.params.id,userId]}const [eligible]=await db.execute(sql,params);if(!eligible.length)return res.status(403).json({error:'You may only add active members from teams you lead.'})}const responsibility=String(req.body.responsibility||'Activity participant').trim().slice(0,255);const marks=userIds.map(()=>'?').join(',');const [[existing],[users],[activities]]=await Promise.all([db.query(`SELECT user_id,state FROM participants WHERE activity_id=? AND user_id IN (${marks})`,[req.params.id,...userIds]),db.query(`SELECT id,name,email FROM users WHERE id IN (${marks})`,userIds),db.execute('SELECT id,title,deadline FROM activities WHERE id=?',[req.params.id])]);for(const userId of userIds)await db.execute("INSERT INTO participants(activity_id,user_id,state,responsibility) VALUES(?,?,'confirmed',?) ON DUPLICATE KEY UPDATE state='confirmed',responsibility=VALUES(responsibility)",[req.params.id,userId,responsibility]);res.status(201).json({ok:true});const confirmed=new Set(existing.filter(item=>item.state==='confirmed').map(item=>Number(item.user_id)));for(const user of users)if(!confirmed.has(Number(user.id)))mailer.notifyActivityRegistration(user,activities[0],responsibility,req.session.user.name)}));
-app.post('/api/activities/:id/updates',auth,asyncRoute(async(req,res)=>{if(!(await visibleActivity(req.session.user,req.params.id)))return res.status(404).json({error:'Activity not found.'});const body=String(req.body.body||'').trim(),taskId=Number(req.body.task_id)||null,kind=req.body.kind||'comment';if(!body)return res.status(400).json({error:'Write an update first.'});await db.execute('INSERT INTO updates(activity_id,task_id,user_id,body,kind,attachment_url) VALUES(?,?,?,?,?,?)',[req.params.id,taskId,req.session.user.id,body,kind,req.body.attachment_url||null]);res.status(201).json({ok:true});if(taskId)try{const [[tasks],[owners]]=await Promise.all([db.execute('SELECT t.id,t.title,t.activity_id,a.title activity_title FROM tasks t JOIN activities a ON a.id=t.activity_id WHERE t.id=? AND t.activity_id=?',[taskId,req.params.id]),db.execute('SELECT DISTINCT u.id,u.name,u.email FROM users u JOIN tasks t ON t.id=? LEFT JOIN task_assignees ta ON ta.task_id=t.id AND ta.user_id=u.id WHERE u.is_active=1 AND u.id!=? AND (ta.user_id IS NOT NULL OR u.id=t.assigned_by)',[taskId,req.session.user.id])]);const task=tasks[0];if(task)for(const owner of owners)mailer.notifyTaskResponse(owner,task,req.session.user.name,{body,kind})}catch(error){logger.error(`Unable to prepare task ${taskId} response push notifications.`,error)}}));
+app.patch(
+  "/api/activities/:id",
+  auth,
+  manager,
+  asyncRoute(async (req, res) => {
+    if (!(await canManageActivity(req.session.user, req.params.id)))
+      return res
+        .status(403)
+        .json({ error: "You cannot manage this activity." });
+    const teamEdit =
+      req.body.team_ids !== undefined || req.body.team_id !== undefined;
+    if (teamEdit && req.session.user.role !== "admin")
+      return res
+        .status(403)
+        .json({ error: "Only administrators can change involved teams." });
+    const allowed = [
+      "status",
+      "priority",
+      "result_summary",
+      "title",
+      "description",
+      "type",
+      "deadline",
+      "start_date",
+      "location",
+      "requested_by",
+    ];
+    const entries = Object.entries(req.body).filter(([key]) =>
+      allowed.includes(key),
+    );
+    if (
+      ["title", "description", "deadline"].some(
+        (key) =>
+          Object.hasOwn(req.body, key) && !String(req.body[key] || "").trim(),
+      )
+    )
+      return res
+        .status(400)
+        .json({ error: "Title, description and deadline cannot be empty." });
+    let teamIds = [],
+      primary = 0;
+    if (teamEdit) {
+      ((teamIds = ids(req.body.team_ids)),
+        (primary = Number(req.body.team_id)));
+      if (!teamIds.length || !teamIds.includes(primary))
+        return res
+          .status(400)
+          .json({ error: "Select involved teams and a coordinating team." });
+      const [validTeams] = await db.query(
+        `SELECT id FROM teams WHERE is_active=1 AND id IN (${teamIds.map(() => "?").join(",")})`,
+        teamIds,
+      );
+      if (validTeams.length !== teamIds.length)
+        return res
+          .status(400)
+          .json({ error: "One or more selected teams are unavailable." });
+      const [taskTeams] = await db.query(
+        `SELECT DISTINCT team_id FROM tasks WHERE activity_id=? AND team_id NOT IN (${teamIds.map(() => "?").join(",")})`,
+        [req.params.id, ...teamIds],
+      );
+      if (taskTeams.length)
+        return res
+          .status(409)
+          .json({
+            error:
+              "A team with existing tasks cannot be removed. Reassign those tasks first.",
+          });
+    }
+    if (!entries.length && !teamEdit)
+      return res.status(400).json({ error: "No valid fields supplied." });
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+      if (entries.length)
+        await conn.execute(
+          `UPDATE activities SET ${entries.map(([k]) => `${k}=?`).join(",")} WHERE id=?`,
+          [
+            ...entries.map(([k, v]) =>
+              [
+                "start_date",
+                "location",
+                "requested_by",
+                "result_summary",
+              ].includes(k)
+                ? v || null
+                : v,
+            ),
+            req.params.id,
+          ],
+        );
+      if (teamEdit) {
+        await conn.execute("UPDATE activities SET team_id=? WHERE id=?", [
+          primary,
+          req.params.id,
+        ]);
+        for (const teamId of teamIds)
+          await conn.execute(
+            "INSERT INTO activity_teams(activity_id,team_id,role,responsibility) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE role=VALUES(role)",
+            [
+              req.params.id,
+              teamId,
+              teamId === primary ? "primary" : "supporting",
+              teamId === primary
+                ? "Coordinates the activity"
+                : "Supports the activity",
+            ],
+          );
+        await conn.query(
+          `DELETE FROM activity_teams WHERE activity_id=? AND team_id NOT IN (${teamIds.map(() => "?").join(",")})`,
+          [req.params.id, ...teamIds],
+        );
+        await conn.execute(
+          "UPDATE activity_teams SET role=IF(team_id=?,'primary','supporting') WHERE activity_id=?",
+          [primary, req.params.id],
+        );
+      }
+      await conn.commit();
+      res.json({ ok: true });
+    } catch (e) {
+      await conn.rollback();
+      throw e;
+    } finally {
+      conn.release();
+    }
+  }),
+);
+app.post(
+  "/api/activities/:id/volunteer",
+  auth,
+  asyncRoute(async (req, res) => {
+    if (!(await visibleActivity(req.session.user, req.params.id)))
+      return res.status(404).json({ error: "Activity not found." });
+    await db.execute(
+      "INSERT INTO participants(activity_id,user_id,state) VALUES(?,?,'volunteered') ON DUPLICATE KEY UPDATE state='volunteered'",
+      [req.params.id, req.session.user.id],
+    );
+    res.json({ ok: true });
+  }),
+);
+app.post(
+  "/api/activities/:id/participants",
+  auth,
+  manager,
+  asyncRoute(async (req, res) => {
+    if (!(await canManageActivity(req.session.user, req.params.id)))
+      return res
+        .status(403)
+        .json({ error: "You cannot manage participants for this activity." });
+    const userIds = ids(req.body.user_ids);
+    if (!userIds.length)
+      return res.status(400).json({ error: "Select at least one member." });
+    for (const userId of userIds) {
+      let sql = "SELECT 1 FROM users WHERE id=? AND is_active=1",
+        params = [userId];
+      if (isLeadership(req.session.user)) {
+        sql =
+          "SELECT 1 FROM users u JOIN user_teams member_team ON member_team.user_id=u.id JOIN user_teams leader_team ON leader_team.team_id=member_team.team_id AND leader_team.user_id=? AND (leader_team.is_lead=1 OR leader_team.is_vice_lead=1) JOIN activity_teams at ON at.team_id=member_team.team_id AND at.activity_id=? WHERE u.id=? AND u.is_active=1 LIMIT 1";
+        params = [req.session.user.id, req.params.id, userId];
+      }
+      const [eligible] = await db.execute(sql, params);
+      if (!eligible.length)
+        return res
+          .status(403)
+          .json({
+            error: "You may only add active members from teams you lead.",
+          });
+    }
+    const responsibility = String(
+      req.body.responsibility || "Activity participant",
+    )
+      .trim()
+      .slice(0, 255);
+    const marks = userIds.map(() => "?").join(",");
+    const [[existing], [users], [activities]] = await Promise.all([
+      db.query(
+        `SELECT user_id,state FROM participants WHERE activity_id=? AND user_id IN (${marks})`,
+        [req.params.id, ...userIds],
+      ),
+      db.query(
+        `SELECT id,name,email FROM users WHERE id IN (${marks})`,
+        userIds,
+      ),
+      db.execute("SELECT id,title,deadline FROM activities WHERE id=?", [
+        req.params.id,
+      ]),
+    ]);
+    for (const userId of userIds)
+      await db.execute(
+        "INSERT INTO participants(activity_id,user_id,state,responsibility) VALUES(?,?,'confirmed',?) ON DUPLICATE KEY UPDATE state='confirmed',responsibility=VALUES(responsibility)",
+        [req.params.id, userId, responsibility],
+      );
+    res.status(201).json({ ok: true });
+    const confirmed = new Set(
+      existing
+        .filter((item) => item.state === "confirmed")
+        .map((item) => Number(item.user_id)),
+    );
+    for (const user of users)
+      if (!confirmed.has(Number(user.id)))
+        mailer.notifyActivityRegistration(
+          user,
+          activities[0],
+          responsibility,
+          req.session.user.name,
+        );
+  }),
+);
+app.post(
+  "/api/activities/:id/updates",
+  auth,
+  asyncRoute(async (req, res) => {
+    if (!(await visibleActivity(req.session.user, req.params.id)))
+      return res.status(404).json({ error: "Activity not found." });
+    const body = String(req.body.body || "").trim(),
+      taskId = Number(req.body.task_id) || null,
+      kind = req.body.kind || "comment";
+    if (!body) return res.status(400).json({ error: "Write an update first." });
+    await db.execute(
+      "INSERT INTO updates(activity_id,task_id,user_id,body,kind,attachment_url) VALUES(?,?,?,?,?,?)",
+      [
+        req.params.id,
+        taskId,
+        req.session.user.id,
+        body,
+        kind,
+        req.body.attachment_url || null,
+      ],
+    );
+    res.status(201).json({ ok: true });
+    if (taskId)
+      try {
+        const [[tasks], [owners]] = await Promise.all([
+          db.execute(
+            "SELECT t.id,t.title,t.activity_id,a.title activity_title FROM tasks t JOIN activities a ON a.id=t.activity_id WHERE t.id=? AND t.activity_id=?",
+            [taskId, req.params.id],
+          ),
+          db.execute(
+            "SELECT DISTINCT u.id,u.name,u.email FROM users u JOIN tasks t ON t.id=? LEFT JOIN task_assignees ta ON ta.task_id=t.id AND ta.user_id=u.id WHERE u.is_active=1 AND u.id!=? AND (ta.user_id IS NOT NULL OR u.id=t.assigned_by)",
+            [taskId, req.session.user.id],
+          ),
+        ]);
+        const task = tasks[0];
+        if (task)
+          for (const owner of owners)
+            mailer.notifyTaskResponse(owner, task, req.session.user.name, {
+              body,
+              kind,
+            });
+      } catch (error) {
+        logger.error(
+          `Unable to prepare task ${taskId} response push notifications.`,
+          error,
+        );
+      }
+  }),
+);
 
-app.post('/api/activities/:id/tasks',auth,manager,asyncRoute(async(req,res)=>{if(!(await canManageActivity(req.session.user,req.params.id)))return res.status(403).json({error:'You cannot manage this activity.'});const {title,description,stage,priority,team_id,start_date,deadline,deliverable}=req.body,assigneeIds=ids(req.body.assignee_ids?.length?req.body.assignee_ids:req.body.assignee_id);if(!title||!team_id||!deadline)return res.status(400).json({error:'Title, team and deadline are required.'});if(!(await canManageTeam(req.session.user,team_id)))return res.status(403).json({error:'You cannot assign work for this team.'});for(const userId of assigneeIds){const [member]=await db.execute('SELECT 1 FROM user_teams WHERE user_id=? AND team_id=?',[userId,team_id]);if(!member.length)return res.status(400).json({error:'Every assignee must belong to the responsible team.'})}const conn=await db.getConnection();try{await conn.beginTransaction();const [result]=await conn.execute('INSERT INTO tasks(activity_id,title,description,stage,priority,team_id,assignee_id,assigned_by,start_date,deadline,deliverable) VALUES(?,?,?,?,?,?,?,?,?,?,?)',[req.params.id,title,description||null,stage||'general',priority||'medium',team_id,assigneeIds[0]||null,req.session.user.id,start_date||null,deadline,deliverable||null]);for(const userId of assigneeIds)await conn.execute('INSERT INTO task_assignees(task_id,user_id) VALUES(?,?)',[result.insertId,userId]);await conn.execute("INSERT IGNORE INTO activity_teams(activity_id,team_id,role,responsibility) VALUES(?,?,'supporting','Responsible for assigned work')",[req.params.id,team_id]);await conn.commit();res.status(201).json({id:result.insertId});if(assigneeIds.length)try{const marks=assigneeIds.map(()=>'?').join(',');const [[users],[activities]]=await Promise.all([db.query(`SELECT id,name,email FROM users WHERE id IN (${marks})`,assigneeIds),db.execute('SELECT title FROM activities WHERE id=?',[req.params.id])]);const task={id:result.insertId,activity_id:Number(req.params.id),activity_title:activities[0]?.title||'Hoạt động',title,deadline,priority:priority||'medium',deliverable};for(const user of users)mailer.notifyTaskAssigned(user,task,req.session.user.name)}catch(error){logger.error(`Unable to prepare task ${result.insertId} push notifications.`,error)}}catch(e){await conn.rollback();throw e}finally{conn.release()}}));
+app.post(
+  "/api/activities/:id/tasks",
+  auth,
+  manager,
+  asyncRoute(async (req, res) => {
+    if (!(await canManageActivity(req.session.user, req.params.id)))
+      return res
+        .status(403)
+        .json({ error: "You cannot manage this activity." });
+    const {
+        title,
+        description,
+        stage,
+        priority,
+        team_id,
+        start_date,
+        deadline,
+        deliverable,
+      } = req.body,
+      assigneeIds = ids(
+        req.body.assignee_ids?.length
+          ? req.body.assignee_ids
+          : req.body.assignee_id,
+      );
+    if (!title || !team_id || !deadline)
+      return res
+        .status(400)
+        .json({ error: "Title, team and deadline are required." });
+    if (!(await canManageTeam(req.session.user, team_id)))
+      return res
+        .status(403)
+        .json({ error: "You cannot assign work for this team." });
+    for (const userId of assigneeIds) {
+      const [member] = await db.execute(
+        "SELECT 1 FROM user_teams WHERE user_id=? AND team_id=?",
+        [userId, team_id],
+      );
+      if (!member.length)
+        return res
+          .status(400)
+          .json({
+            error: "Every assignee must belong to the responsible team.",
+          });
+    }
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+      const [result] = await conn.execute(
+        "INSERT INTO tasks(activity_id,title,description,stage,priority,team_id,assignee_id,assigned_by,start_date,deadline,deliverable) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+        [
+          req.params.id,
+          title,
+          description || null,
+          stage || "general",
+          priority || "medium",
+          team_id,
+          assigneeIds[0] || null,
+          req.session.user.id,
+          start_date || null,
+          deadline,
+          deliverable || null,
+        ],
+      );
+      for (const userId of assigneeIds)
+        await conn.execute(
+          "INSERT INTO task_assignees(task_id,user_id) VALUES(?,?)",
+          [result.insertId, userId],
+        );
+      await conn.execute(
+        "INSERT IGNORE INTO activity_teams(activity_id,team_id,role,responsibility) VALUES(?,?,'supporting','Responsible for assigned work')",
+        [req.params.id, team_id],
+      );
+      await conn.commit();
+      res.status(201).json({ id: result.insertId });
+      if (assigneeIds.length)
+        try {
+          const marks = assigneeIds.map(() => "?").join(",");
+          const [[users], [activities]] = await Promise.all([
+            db.query(
+              `SELECT id,name,email FROM users WHERE id IN (${marks})`,
+              assigneeIds,
+            ),
+            db.execute("SELECT title FROM activities WHERE id=?", [
+              req.params.id,
+            ]),
+          ]);
+          const task = {
+            id: result.insertId,
+            activity_id: Number(req.params.id),
+            activity_title: activities[0]?.title || "Hoạt động",
+            title,
+            deadline,
+            priority: priority || "medium",
+            deliverable,
+          };
+          for (const user of users)
+            mailer.notifyTaskAssigned(user, task, req.session.user.name);
+        } catch (error) {
+          logger.error(
+            `Unable to prepare task ${result.insertId} push notifications.`,
+            error,
+          );
+        }
+    } catch (e) {
+      await conn.rollback();
+      throw e;
+    } finally {
+      conn.release();
+    }
+  }),
+);
 
-app.patch('/api/tasks/:id',auth,asyncRoute(async(req,res)=>{const [rows]=await db.execute('SELECT t.*,EXISTS(SELECT 1 FROM task_assignees ta WHERE ta.task_id=t.id AND ta.user_id=?) assigned_to_me FROM tasks t WHERE t.id=?',[req.session.user.id,req.params.id]);const task=one(rows);if(!task)return res.status(404).json({error:'Task not found.'});const manages=await canManageTeam(req.session.user,task.team_id);if(!manages&&!task.assigned_to_me)return res.status(403).json({error:'You cannot update this task.'});const allowed=manages?['status','deadline','start_date','priority','deliverable']:['status'];const entries=Object.entries(req.body).filter(([key])=>allowed.includes(key));if(!entries.length)return res.status(400).json({error:'No valid fields supplied.'});const complete=entries.find(([k])=>k==='status')?.[1]==='done'?',completed_at=NOW()':'';await db.execute(`UPDATE tasks SET ${entries.map(([k])=>`${k}=?`).join(',')}${complete} WHERE id=?`,[...entries.map(([,v])=>v||null),req.params.id]);res.json({ok:true})}));
+app.patch(
+  "/api/tasks/:id",
+  auth,
+  asyncRoute(async (req, res) => {
+    const [rows] = await db.execute(
+      "SELECT t.*,EXISTS(SELECT 1 FROM task_assignees ta WHERE ta.task_id=t.id AND ta.user_id=?) assigned_to_me FROM tasks t WHERE t.id=?",
+      [req.session.user.id, req.params.id],
+    );
+    const task = one(rows);
+    if (!task) return res.status(404).json({ error: "Task not found." });
+    const manages = await canManageTeam(req.session.user, task.team_id);
+    if (!manages && !task.assigned_to_me)
+      return res.status(403).json({ error: "You cannot update this task." });
+    const allowed = manages
+      ? ["status", "deadline", "start_date", "priority", "deliverable"]
+      : ["status"];
+    const entries = Object.entries(req.body).filter(([key]) =>
+      allowed.includes(key),
+    );
+    if (!entries.length)
+      return res.status(400).json({ error: "No valid fields supplied." });
+    const complete =
+      entries.find(([k]) => k === "status")?.[1] === "done"
+        ? ",completed_at=NOW()"
+        : "";
+    await db.execute(
+      `UPDATE tasks SET ${entries.map(([k]) => `${k}=?`).join(",")}${complete} WHERE id=?`,
+      [...entries.map(([, v]) => v || null), req.params.id],
+    );
+    res.json({ ok: true });
+  }),
+);
 
-app.get('/api/people',auth,asyncRoute(async(req,res)=>{let scope='1=1',params=[];if(isLeadership(req.session.user)){scope='EXISTS(SELECT 1 FROM user_teams mine JOIN user_teams theirs ON theirs.team_id=mine.team_id WHERE mine.user_id=? AND (mine.is_lead=1 OR mine.is_vice_lead=1) AND theirs.user_id=u.id)';params=[req.session.user.id]}else if(req.session.user.role==='member'){scope='u.id=?';params=[req.session.user.id]}const [rows]=await db.execute(`SELECT u.id,u.name,u.email,u.role,u.phone,u.avatar_color,u.is_active,GROUP_CONCAT(DISTINCT t.name ORDER BY t.name SEPARATOR ', ') teams,GROUP_CONCAT(DISTINCT t.id ORDER BY t.id) team_ids,COUNT(DISTINCT CASE WHEN tk.status='done' THEN tk.id END) completed_tasks FROM users u LEFT JOIN user_teams ut ON ut.user_id=u.id LEFT JOIN teams t ON t.id=ut.team_id LEFT JOIN task_assignees ta ON ta.user_id=u.id LEFT JOIN tasks tk ON tk.id=ta.task_id WHERE u.is_active=1 AND ${scope} GROUP BY u.id ORDER BY FIELD(u.role,'admin','leader','vice_leader','member'),u.name`,params);for(const row of rows)row.can_manage=await canManageUser(req.session.user,row.id);res.json(rows)}));
+app.get(
+  "/api/people",
+  auth,
+  asyncRoute(async (req, res) => {
+    let scope = "1=1",
+      params = [];
+    if (isLeadership(req.session.user)) {
+      scope =
+        "EXISTS(SELECT 1 FROM user_teams mine JOIN user_teams theirs ON theirs.team_id=mine.team_id WHERE mine.user_id=? AND (mine.is_lead=1 OR mine.is_vice_lead=1) AND theirs.user_id=u.id)";
+      params = [req.session.user.id];
+    } else if (req.session.user.role === "member") {
+      scope = "u.id=?";
+      params = [req.session.user.id];
+    }
+    const [rows] = await db.execute(
+      `SELECT u.id,u.name,u.email,u.role,u.phone,u.avatar_color,u.is_active,GROUP_CONCAT(DISTINCT t.name ORDER BY t.name SEPARATOR ', ') teams,GROUP_CONCAT(DISTINCT t.id ORDER BY t.id) team_ids,COUNT(DISTINCT CASE WHEN tk.status='done' THEN tk.id END) completed_tasks FROM users u LEFT JOIN user_teams ut ON ut.user_id=u.id LEFT JOIN teams t ON t.id=ut.team_id LEFT JOIN task_assignees ta ON ta.user_id=u.id LEFT JOIN tasks tk ON tk.id=ta.task_id WHERE u.is_active=1 AND ${scope} GROUP BY u.id ORDER BY FIELD(u.role,'admin','leader','vice_leader','member'),u.name`,
+      params,
+    );
+    for (const row of rows)
+      row.can_manage = await canManageUser(req.session.user, row.id);
+    res.json(rows);
+  }),
+);
 
-app.post('/api/users',auth,manager,asyncRoute(async(req,res)=>{let {name,email,password,role,phone}=req.body;const teamIds=ids(req.body.team_ids),allowedTeams=await managedTeamIds(req.session.user);if(isLeadership(req.session.user))role='member';if(!name||!email||!password||!['admin','leader','vice_leader','member'].includes(role))return res.status(400).json({error:'Name, email, password and role are required.'});if(role==='member'&&!teamIds.length)return res.status(400).json({error:'A member must belong to at least one team.'});if(isLeadership(req.session.user)&&teamIds.some(id=>!allowedTeams.includes(id)))return res.status(403).json({error:'Team leaders and vice leaders may create accounts only in teams they lead.'});if(password.length<8)return res.status(400).json({error:'Password must contain at least 8 characters.'});const conn=await db.getConnection();try{await conn.beginTransaction();const hash=await bcrypt.hash(password,10);const [result]=await conn.execute('INSERT INTO users(name,email,password_hash,role,phone) VALUES(?,?,?,?,?)',[name,String(email).trim().toLowerCase(),hash,role,phone||null]);for(const teamId of teamIds)await conn.execute('INSERT INTO user_teams(user_id,team_id,is_lead,is_vice_lead) VALUES(?,?,?,?)',[result.insertId,teamId,role==='leader',role==='vice_leader']);await conn.commit();res.status(201).json({id:result.insertId})}catch(e){await conn.rollback();throw e}finally{conn.release()}}));
-app.patch('/api/users/:id',auth,manager,asyncRoute(async(req,res)=>{if(!(await canManageUser(req.session.user,req.params.id)))return res.status(403).json({error:'You cannot edit this account.'});const [targetRows]=await db.execute('SELECT * FROM users WHERE id=?',[req.params.id]);const target=one(targetRows);if(!target)return res.status(404).json({error:'Account not found.'});let role=req.body.role||target.role,teamIds=ids(req.body.team_ids),allowedTeams=await managedTeamIds(req.session.user);if(isLeadership(req.session.user)){role='member';if(teamIds.some(id=>!allowedTeams.includes(id))||!teamIds.some(id=>allowedTeams.includes(id)))return res.status(403).json({error:'The account must remain in at least one team you lead.'})}if(role==='member'&&!teamIds.length)return res.status(400).json({error:'A member must belong to at least one team.'});const email=String(req.body.email||target.email).trim().toLowerCase(),name=String(req.body.name||target.name).trim(),phone=String(req.body.phone||'').trim(),avatarColor=String(req.body.avatar_color||target.avatar_color);if(!name||!email||!/^#[0-9a-f]{6}$/i.test(avatarColor))return res.status(400).json({error:'Name, email and a valid avatar color are required.'});const conn=await db.getConnection();try{await conn.beginTransaction();const sets=['name=?','email=?','role=?','phone=?','avatar_color=?','is_active=?'],values=[name,email,role,phone||null,avatarColor,req.body.is_active===false?0:1];if(req.body.password){if(String(req.body.password).length<8)return res.status(400).json({error:'Password must contain at least 8 characters.'});sets.push('password_hash=?');values.push(await bcrypt.hash(String(req.body.password),10))}values.push(req.params.id);await conn.execute(`UPDATE users SET ${sets.join(',')} WHERE id=?`,values);if(req.session.user.role==='admin')await conn.execute('DELETE FROM user_teams WHERE user_id=?',[req.params.id]);else await conn.execute(`DELETE ut FROM user_teams ut JOIN user_teams mine ON mine.team_id=ut.team_id AND mine.user_id=? AND (mine.is_lead=1 OR mine.is_vice_lead=1) WHERE ut.user_id=?`,[req.session.user.id,req.params.id]);for(const teamId of teamIds)await conn.execute('INSERT INTO user_teams(user_id,team_id,is_lead,is_vice_lead) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE is_lead=VALUES(is_lead),is_vice_lead=VALUES(is_vice_lead)',[req.params.id,teamId,role==='leader',role==='vice_leader']);await conn.commit();res.json({ok:true})}catch(e){await conn.rollback();throw e}finally{conn.release()}}));
-app.delete('/api/users/:id',auth,manager,asyncRoute(async(req,res)=>{if(Number(req.params.id)===Number(req.session.user.id))return res.status(400).json({error:'You cannot delete your own signed-in account.'});if(!(await canManageUser(req.session.user,req.params.id)))return res.status(403).json({error:'You cannot delete this account.'});if(isLeadership(req.session.user)){await db.execute('DELETE ut FROM user_teams ut JOIN user_teams mine ON mine.team_id=ut.team_id AND mine.user_id=? AND (mine.is_lead=1 OR mine.is_vice_lead=1) WHERE ut.user_id=?',[req.session.user.id,req.params.id]);const [remaining]=await db.execute('SELECT 1 FROM user_teams WHERE user_id=? LIMIT 1',[req.params.id]);if(remaining.length)return res.json({ok:true,deleted:false,removed_from_managed_teams:true})}try{const [result]=await db.execute('DELETE FROM users WHERE id=?',[req.params.id]);if(!result.affectedRows)return res.status(404).json({error:'Account not found.'});res.json({ok:true,deleted:true})}catch(error){if(error.code!=='ER_ROW_IS_REFERENCED_2')throw error;await db.execute('UPDATE users SET is_active=0 WHERE id=?',[req.params.id]);res.json({ok:true,deleted:false,deactivated:true})}}));
+app.post(
+  "/api/users",
+  auth,
+  manager,
+  asyncRoute(async (req, res) => {
+    let { name, email, password, role, phone } = req.body;
+    const teamIds = ids(req.body.team_ids),
+      allowedTeams = await managedTeamIds(req.session.user);
+    if (isLeadership(req.session.user)) role = "member";
+    if (
+      !name ||
+      !email ||
+      !password ||
+      !["admin", "leader", "vice_leader", "member"].includes(role)
+    )
+      return res
+        .status(400)
+        .json({ error: "Name, email, password and role are required." });
+    if (role === "member" && !teamIds.length)
+      return res
+        .status(400)
+        .json({ error: "A member must belong to at least one team." });
+    if (
+      isLeadership(req.session.user) &&
+      teamIds.some((id) => !allowedTeams.includes(id))
+    )
+      return res
+        .status(403)
+        .json({
+          error:
+            "Team leaders and vice leaders may create accounts only in teams they lead.",
+        });
+    if (password.length < 8)
+      return res
+        .status(400)
+        .json({ error: "Password must contain at least 8 characters." });
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+      const hash = await bcrypt.hash(password, 10);
+      const [result] = await conn.execute(
+        "INSERT INTO users(name,email,password_hash,role,phone) VALUES(?,?,?,?,?)",
+        [name, String(email).trim().toLowerCase(), hash, role, phone || null],
+      );
+      for (const teamId of teamIds)
+        await conn.execute(
+          "INSERT INTO user_teams(user_id,team_id,is_lead,is_vice_lead) VALUES(?,?,?,?)",
+          [result.insertId, teamId, role === "leader", role === "vice_leader"],
+        );
+      await conn.commit();
+      res.status(201).json({ id: result.insertId });
+    } catch (e) {
+      await conn.rollback();
+      throw e;
+    } finally {
+      conn.release();
+    }
+  }),
+);
+app.patch(
+  "/api/users/:id",
+  auth,
+  manager,
+  asyncRoute(async (req, res) => {
+    if (!(await canManageUser(req.session.user, req.params.id)))
+      return res.status(403).json({ error: "You cannot edit this account." });
+    const [targetRows] = await db.execute("SELECT * FROM users WHERE id=?", [
+      req.params.id,
+    ]);
+    const target = one(targetRows);
+    if (!target) return res.status(404).json({ error: "Account not found." });
+    let role = req.body.role || target.role,
+      teamIds = ids(req.body.team_ids),
+      allowedTeams = await managedTeamIds(req.session.user);
+    if (isLeadership(req.session.user)) {
+      role = "member";
+      if (
+        teamIds.some((id) => !allowedTeams.includes(id)) ||
+        !teamIds.some((id) => allowedTeams.includes(id))
+      )
+        return res
+          .status(403)
+          .json({
+            error: "The account must remain in at least one team you lead.",
+          });
+    }
+    if (role === "member" && !teamIds.length)
+      return res
+        .status(400)
+        .json({ error: "A member must belong to at least one team." });
+    const email = String(req.body.email || target.email)
+        .trim()
+        .toLowerCase(),
+      name = String(req.body.name || target.name).trim(),
+      phone = String(req.body.phone || "").trim(),
+      avatarColor = String(req.body.avatar_color || target.avatar_color);
+    if (!name || !email || !/^#[0-9a-f]{6}$/i.test(avatarColor))
+      return res
+        .status(400)
+        .json({ error: "Name, email and a valid avatar color are required." });
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+      const sets = [
+          "name=?",
+          "email=?",
+          "role=?",
+          "phone=?",
+          "avatar_color=?",
+          "is_active=?",
+        ],
+        values = [
+          name,
+          email,
+          role,
+          phone || null,
+          avatarColor,
+          req.body.is_active === false ? 0 : 1,
+        ];
+      if (req.body.password) {
+        if (String(req.body.password).length < 8)
+          return res
+            .status(400)
+            .json({ error: "Password must contain at least 8 characters." });
+        sets.push("password_hash=?");
+        values.push(await bcrypt.hash(String(req.body.password), 10));
+      }
+      values.push(req.params.id);
+      await conn.execute(
+        `UPDATE users SET ${sets.join(",")} WHERE id=?`,
+        values,
+      );
+      if (req.session.user.role === "admin")
+        await conn.execute("DELETE FROM user_teams WHERE user_id=?", [
+          req.params.id,
+        ]);
+      else
+        await conn.execute(
+          `DELETE ut FROM user_teams ut JOIN user_teams mine ON mine.team_id=ut.team_id AND mine.user_id=? AND (mine.is_lead=1 OR mine.is_vice_lead=1) WHERE ut.user_id=?`,
+          [req.session.user.id, req.params.id],
+        );
+      for (const teamId of teamIds)
+        await conn.execute(
+          "INSERT INTO user_teams(user_id,team_id,is_lead,is_vice_lead) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE is_lead=VALUES(is_lead),is_vice_lead=VALUES(is_vice_lead)",
+          [req.params.id, teamId, role === "leader", role === "vice_leader"],
+        );
+      await conn.commit();
+      res.json({ ok: true });
+    } catch (e) {
+      await conn.rollback();
+      throw e;
+    } finally {
+      conn.release();
+    }
+  }),
+);
+app.delete(
+  "/api/users/:id",
+  auth,
+  manager,
+  asyncRoute(async (req, res) => {
+    if (Number(req.params.id) === Number(req.session.user.id))
+      return res
+        .status(400)
+        .json({ error: "You cannot delete your own signed-in account." });
+    if (!(await canManageUser(req.session.user, req.params.id)))
+      return res.status(403).json({ error: "You cannot delete this account." });
+    if (isLeadership(req.session.user)) {
+      await db.execute(
+        "DELETE ut FROM user_teams ut JOIN user_teams mine ON mine.team_id=ut.team_id AND mine.user_id=? AND (mine.is_lead=1 OR mine.is_vice_lead=1) WHERE ut.user_id=?",
+        [req.session.user.id, req.params.id],
+      );
+      const [remaining] = await db.execute(
+        "SELECT 1 FROM user_teams WHERE user_id=? LIMIT 1",
+        [req.params.id],
+      );
+      if (remaining.length)
+        return res.json({
+          ok: true,
+          deleted: false,
+          removed_from_managed_teams: true,
+        });
+    }
+    try {
+      const [result] = await db.execute("DELETE FROM users WHERE id=?", [
+        req.params.id,
+      ]);
+      if (!result.affectedRows)
+        return res.status(404).json({ error: "Account not found." });
+      res.json({ ok: true, deleted: true });
+    } catch (error) {
+      if (error.code !== "ER_ROW_IS_REFERENCED_2") throw error;
+      await db.execute("UPDATE users SET is_active=0 WHERE id=?", [
+        req.params.id,
+      ]);
+      res.json({ ok: true, deleted: false, deactivated: true });
+    }
+  }),
+);
 
-app.get('/api/teams',auth,asyncRoute(async(req,res)=>{const [rows]=await db.execute(`SELECT t.*,COUNT(DISTINCT ut.user_id) member_count,COUNT(DISTINCT CASE WHEN a.status IN ('approved','active') THEN ats.activity_id END) active_count,EXISTS(SELECT 1 FROM user_teams mine WHERE mine.team_id=t.id AND mine.user_id=? AND (mine.is_lead=1 OR mine.is_vice_lead=1)) can_manage FROM teams t LEFT JOIN user_teams ut ON ut.team_id=t.id LEFT JOIN activity_teams ats ON ats.team_id=t.id LEFT JOIN activities a ON a.id=ats.activity_id WHERE t.is_active=1 GROUP BY t.id ORDER BY t.sort_order,t.name`,[req.session.user.id]);res.json(rows)}));
-app.post('/api/teams',auth,admin,asyncRoute(async(req,res)=>{if(!req.body.name)return res.status(400).json({error:'Team name is required.'});const [result]=await db.execute('INSERT INTO teams(name,description,color) VALUES(?,?,?)',[req.body.name,req.body.description||null,req.body.color||'#315C4C']);res.status(201).json({id:result.insertId})}));
-app.patch('/api/teams/:id',auth,manager,asyncRoute(async(req,res)=>{if(!(await canManageTeam(req.session.user,req.params.id)))return res.status(403).json({error:'You cannot edit this team.'});const color=String(req.body.color||'');if(!/^#[0-9a-f]{6}$/i.test(color))return res.status(400).json({error:'Choose a valid team color.'});const fields=['color=?'],values=[color];if(req.session.user.role==='admin'){if(!String(req.body.name||'').trim())return res.status(400).json({error:'Team name is required.'});fields.push('name=?','description=?');values.push(String(req.body.name).trim(),String(req.body.description||'').trim()||null)}values.push(req.params.id);await db.execute(`UPDATE teams SET ${fields.join(',')} WHERE id=?`,values);res.json({ok:true})}));
-app.get('/api/teams/:id/members',auth,asyncRoute(async(req,res)=>{if(req.session.user.role!=='admin'&&!(await canManageTeam(req.session.user,req.params.id)))return res.status(403).json({error:'You cannot manage this team.'});const [[members],[available]]=await Promise.all([db.execute('SELECT u.id,u.name,u.email,u.role,u.avatar_color,ut.is_lead,ut.is_vice_lead FROM user_teams ut JOIN users u ON u.id=ut.user_id WHERE ut.team_id=? AND u.is_active=1 ORDER BY ut.is_lead DESC,ut.is_vice_lead DESC,u.name',[req.params.id]),db.execute('SELECT u.id,u.name,u.email,u.role FROM users u WHERE u.is_active=1 AND NOT EXISTS(SELECT 1 FROM user_teams ut WHERE ut.user_id=u.id AND ut.team_id=?) ORDER BY u.name',[req.params.id])]);res.json({members,available})}));
-app.get('/api/teams/:id/overview',auth,asyncRoute(async(req,res)=>{if(req.session.user.role!=='admin'&&!(await canManageTeam(req.session.user,req.params.id)))return res.status(403).json({error:'You cannot view this team overview.'});const [[teamRows],[members],[tasks],[activities]]=await Promise.all([db.execute(`SELECT t.*,COUNT(DISTINCT ut.user_id) member_count,COUNT(DISTINCT CASE WHEN tk.status!='done' THEN tk.id END) open_tasks,COUNT(DISTINCT CASE WHEN tk.status='done' THEN tk.id END) done_tasks,COUNT(DISTINCT CASE WHEN tk.status!='done' AND tk.deadline<CURDATE() THEN tk.id END) overdue_tasks FROM teams t LEFT JOIN user_teams ut ON ut.team_id=t.id LEFT JOIN tasks tk ON tk.team_id=t.id WHERE t.id=? GROUP BY t.id`,[req.params.id]),db.execute(`SELECT u.id,u.name,u.email,u.role,u.avatar_color,ut.is_lead,ut.is_vice_lead,COUNT(DISTINCT CASE WHEN tk.status!='done' THEN ta.task_id END) open_tasks,COUNT(DISTINCT CASE WHEN tk.status='done' THEN ta.task_id END) done_tasks FROM user_teams ut JOIN users u ON u.id=ut.user_id LEFT JOIN task_assignees ta ON ta.user_id=u.id LEFT JOIN tasks tk ON tk.id=ta.task_id AND tk.team_id=ut.team_id WHERE ut.team_id=? AND u.is_active=1 GROUP BY u.id,ut.is_lead,ut.is_vice_lead ORDER BY ut.is_lead DESC,ut.is_vice_lead DESC,u.name`,[req.params.id]),db.execute(`SELECT tk.*,a.title activity_title,GROUP_CONCAT(DISTINCT u.name ORDER BY u.name SEPARATOR ', ') assignee_name FROM tasks tk JOIN activities a ON a.id=tk.activity_id LEFT JOIN task_assignees ta ON ta.task_id=tk.id LEFT JOIN users u ON u.id=ta.user_id WHERE tk.team_id=? GROUP BY tk.id ORDER BY FIELD(tk.status,'in_progress','review','open','done'),tk.deadline LIMIT 50`,[req.params.id]),db.execute(`SELECT a.id,a.title,a.status,a.deadline,ats.role,COUNT(DISTINCT tk.id) task_count,COUNT(DISTINCT CASE WHEN tk.status='done' THEN tk.id END) done_count FROM activity_teams ats JOIN activities a ON a.id=ats.activity_id LEFT JOIN tasks tk ON tk.activity_id=a.id AND tk.team_id=ats.team_id WHERE ats.team_id=? GROUP BY a.id,ats.role ORDER BY FIELD(a.status,'active','approved','proposed','completed','cancelled'),a.deadline`,[req.params.id])]);if(!teamRows.length)return res.status(404).json({error:'Team not found.'});res.json({team:teamRows[0],members,tasks,activities})}));
-app.patch('/api/teams/:id/members/:userId',auth,admin,asyncRoute(async(req,res)=>{const teamRole=String(req.body.team_role||'member');if(!['member','vice_leader','leader'].includes(teamRole))return res.status(400).json({error:'Choose a valid team role.'});const [result]=await db.execute('UPDATE user_teams SET is_lead=?,is_vice_lead=? WHERE team_id=? AND user_id=?',[teamRole==='leader',teamRole==='vice_leader',req.params.id,req.params.userId]);if(!result.affectedRows)return res.status(404).json({error:'Team membership not found.'});const [leadership]=await db.execute('SELECT MAX(is_lead) is_lead,MAX(is_vice_lead) is_vice_lead FROM user_teams WHERE user_id=?',[req.params.userId]);const current=leadership[0],role=current.is_lead?'leader':current.is_vice_lead?'vice_leader':'member';await db.execute("UPDATE users SET role=? WHERE id=? AND role!='admin'",[role,req.params.userId]);res.json({ok:true,role})}));
-app.post('/api/teams/:id/members',auth,manager,asyncRoute(async(req,res)=>{if(!(await canManageTeam(req.session.user,req.params.id)))return res.status(403).json({error:'You cannot manage this team.'});const userId=Number(req.body.user_id),teamRole=req.session.user.role==='admin'?String(req.body.team_role||'member'):'member';const [users]=await db.execute('SELECT role FROM users WHERE id=? AND is_active=1',[userId]);if(!users.length)return res.status(404).json({error:'User not found.'});if(!['member','vice_leader','leader'].includes(teamRole))return res.status(400).json({error:'Choose a valid team role.'});if(isLeadership(req.session.user)&&users[0].role!=='member')return res.status(403).json({error:'Team leaders and vice leaders may only add member accounts.'});const isLead=teamRole==='leader',isViceLead=teamRole==='vice_leader';await db.execute('INSERT INTO user_teams(user_id,team_id,is_lead,is_vice_lead) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE is_lead=VALUES(is_lead),is_vice_lead=VALUES(is_vice_lead)',[userId,req.params.id,isLead,isViceLead]);if((isLead||isViceLead)&&users[0].role==='member')await db.execute('UPDATE users SET role=? WHERE id=?',[teamRole,userId]);res.status(201).json({ok:true})}));
+app.get(
+  "/api/teams",
+  auth,
+  asyncRoute(async (req, res) => {
+    const [rows] = await db.execute(
+      `SELECT t.*,COUNT(DISTINCT ut.user_id) member_count,COUNT(DISTINCT CASE WHEN a.status IN ('approved','active') THEN ats.activity_id END) active_count,EXISTS(SELECT 1 FROM user_teams mine WHERE mine.team_id=t.id AND mine.user_id=? AND (mine.is_lead=1 OR mine.is_vice_lead=1)) can_manage FROM teams t LEFT JOIN user_teams ut ON ut.team_id=t.id LEFT JOIN activity_teams ats ON ats.team_id=t.id LEFT JOIN activities a ON a.id=ats.activity_id WHERE t.is_active=1 GROUP BY t.id ORDER BY t.sort_order,t.name`,
+      [req.session.user.id],
+    );
+    res.json(rows);
+  }),
+);
+app.post(
+  "/api/teams",
+  auth,
+  admin,
+  asyncRoute(async (req, res) => {
+    if (!req.body.name)
+      return res.status(400).json({ error: "Team name is required." });
+    const [result] = await db.execute(
+      "INSERT INTO teams(name,description,color) VALUES(?,?,?)",
+      [
+        req.body.name,
+        req.body.description || null,
+        req.body.color || "#315C4C",
+      ],
+    );
+    res.status(201).json({ id: result.insertId });
+  }),
+);
+app.patch(
+  "/api/teams/:id",
+  auth,
+  manager,
+  asyncRoute(async (req, res) => {
+    if (!(await canManageTeam(req.session.user, req.params.id)))
+      return res.status(403).json({ error: "You cannot edit this team." });
+    const color = String(req.body.color || "");
+    if (!/^#[0-9a-f]{6}$/i.test(color))
+      return res.status(400).json({ error: "Choose a valid team color." });
+    const fields = ["color=?"],
+      values = [color];
+    if (req.session.user.role === "admin") {
+      if (!String(req.body.name || "").trim())
+        return res.status(400).json({ error: "Team name is required." });
+      fields.push("name=?", "description=?");
+      values.push(
+        String(req.body.name).trim(),
+        String(req.body.description || "").trim() || null,
+      );
+    }
+    values.push(req.params.id);
+    await db.execute(`UPDATE teams SET ${fields.join(",")} WHERE id=?`, values);
+    res.json({ ok: true });
+  }),
+);
+app.get(
+  "/api/teams/:id/members",
+  auth,
+  asyncRoute(async (req, res) => {
+    if (
+      req.session.user.role !== "admin" &&
+      !(await canManageTeam(req.session.user, req.params.id))
+    )
+      return res.status(403).json({ error: "You cannot manage this team." });
+    const [[members], [available]] = await Promise.all([
+      db.execute(
+        "SELECT u.id,u.name,u.email,u.role,u.avatar_color,ut.is_lead,ut.is_vice_lead FROM user_teams ut JOIN users u ON u.id=ut.user_id WHERE ut.team_id=? AND u.is_active=1 ORDER BY ut.is_lead DESC,ut.is_vice_lead DESC,u.name",
+        [req.params.id],
+      ),
+      db.execute(
+        "SELECT u.id,u.name,u.email,u.role FROM users u WHERE u.is_active=1 AND NOT EXISTS(SELECT 1 FROM user_teams ut WHERE ut.user_id=u.id AND ut.team_id=?) ORDER BY u.name",
+        [req.params.id],
+      ),
+    ]);
+    res.json({ members, available });
+  }),
+);
+app.get(
+  "/api/teams/:id/overview",
+  auth,
+  asyncRoute(async (req, res) => {
+    if (
+      req.session.user.role !== "admin" &&
+      !(await canManageTeam(req.session.user, req.params.id))
+    )
+      return res
+        .status(403)
+        .json({ error: "You cannot view this team overview." });
+    const [[teamRows], [members], [tasks], [activities]] = await Promise.all([
+      db.execute(
+        `SELECT t.*,COUNT(DISTINCT ut.user_id) member_count,COUNT(DISTINCT CASE WHEN tk.status!='done' THEN tk.id END) open_tasks,COUNT(DISTINCT CASE WHEN tk.status='done' THEN tk.id END) done_tasks,COUNT(DISTINCT CASE WHEN tk.status!='done' AND tk.deadline<CURDATE() THEN tk.id END) overdue_tasks FROM teams t LEFT JOIN user_teams ut ON ut.team_id=t.id LEFT JOIN tasks tk ON tk.team_id=t.id WHERE t.id=? GROUP BY t.id`,
+        [req.params.id],
+      ),
+      db.execute(
+        `SELECT u.id,u.name,u.email,u.role,u.avatar_color,ut.is_lead,ut.is_vice_lead,COUNT(DISTINCT CASE WHEN tk.status!='done' THEN ta.task_id END) open_tasks,COUNT(DISTINCT CASE WHEN tk.status='done' THEN ta.task_id END) done_tasks FROM user_teams ut JOIN users u ON u.id=ut.user_id LEFT JOIN task_assignees ta ON ta.user_id=u.id LEFT JOIN tasks tk ON tk.id=ta.task_id AND tk.team_id=ut.team_id WHERE ut.team_id=? AND u.is_active=1 GROUP BY u.id,ut.is_lead,ut.is_vice_lead ORDER BY ut.is_lead DESC,ut.is_vice_lead DESC,u.name`,
+        [req.params.id],
+      ),
+      db.execute(
+        `SELECT tk.*,a.title activity_title,GROUP_CONCAT(DISTINCT u.name ORDER BY u.name SEPARATOR ', ') assignee_name FROM tasks tk JOIN activities a ON a.id=tk.activity_id LEFT JOIN task_assignees ta ON ta.task_id=tk.id LEFT JOIN users u ON u.id=ta.user_id WHERE tk.team_id=? GROUP BY tk.id ORDER BY FIELD(tk.status,'in_progress','review','open','done'),tk.deadline LIMIT 50`,
+        [req.params.id],
+      ),
+      db.execute(
+        `SELECT a.id,a.title,a.status,a.deadline,ats.role,COUNT(DISTINCT tk.id) task_count,COUNT(DISTINCT CASE WHEN tk.status='done' THEN tk.id END) done_count FROM activity_teams ats JOIN activities a ON a.id=ats.activity_id LEFT JOIN tasks tk ON tk.activity_id=a.id AND tk.team_id=ats.team_id WHERE ats.team_id=? GROUP BY a.id,ats.role ORDER BY FIELD(a.status,'active','approved','proposed','completed','cancelled'),a.deadline`,
+        [req.params.id],
+      ),
+    ]);
+    if (!teamRows.length)
+      return res.status(404).json({ error: "Team not found." });
+    res.json({ team: teamRows[0], members, tasks, activities });
+  }),
+);
+app.patch(
+  "/api/teams/:id/members/:userId",
+  auth,
+  admin,
+  asyncRoute(async (req, res) => {
+    const teamRole = String(req.body.team_role || "member");
+    if (!["member", "vice_leader", "leader"].includes(teamRole))
+      return res.status(400).json({ error: "Choose a valid team role." });
+    const [result] = await db.execute(
+      "UPDATE user_teams SET is_lead=?,is_vice_lead=? WHERE team_id=? AND user_id=?",
+      [
+        teamRole === "leader",
+        teamRole === "vice_leader",
+        req.params.id,
+        req.params.userId,
+      ],
+    );
+    if (!result.affectedRows)
+      return res.status(404).json({ error: "Team membership not found." });
+    const [leadership] = await db.execute(
+      "SELECT MAX(is_lead) is_lead,MAX(is_vice_lead) is_vice_lead FROM user_teams WHERE user_id=?",
+      [req.params.userId],
+    );
+    const current = leadership[0],
+      role = current.is_lead
+        ? "leader"
+        : current.is_vice_lead
+          ? "vice_leader"
+          : "member";
+    await db.execute("UPDATE users SET role=? WHERE id=? AND role!='admin'", [
+      role,
+      req.params.userId,
+    ]);
+    res.json({ ok: true, role });
+  }),
+);
+app.post(
+  "/api/teams/:id/members",
+  auth,
+  manager,
+  asyncRoute(async (req, res) => {
+    if (!(await canManageTeam(req.session.user, req.params.id)))
+      return res.status(403).json({ error: "You cannot manage this team." });
+    const userId = Number(req.body.user_id),
+      teamRole =
+        req.session.user.role === "admin"
+          ? String(req.body.team_role || "member")
+          : "member";
+    const [users] = await db.execute(
+      "SELECT role FROM users WHERE id=? AND is_active=1",
+      [userId],
+    );
+    if (!users.length)
+      return res.status(404).json({ error: "User not found." });
+    if (!["member", "vice_leader", "leader"].includes(teamRole))
+      return res.status(400).json({ error: "Choose a valid team role." });
+    if (isLeadership(req.session.user) && users[0].role !== "member")
+      return res
+        .status(403)
+        .json({
+          error: "Team leaders and vice leaders may only add member accounts.",
+        });
+    const isLead = teamRole === "leader",
+      isViceLead = teamRole === "vice_leader";
+    await db.execute(
+      "INSERT INTO user_teams(user_id,team_id,is_lead,is_vice_lead) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE is_lead=VALUES(is_lead),is_vice_lead=VALUES(is_vice_lead)",
+      [userId, req.params.id, isLead, isViceLead],
+    );
+    if ((isLead || isViceLead) && users[0].role === "member")
+      await db.execute("UPDATE users SET role=? WHERE id=?", [
+        teamRole,
+        userId,
+      ]);
+    res.status(201).json({ ok: true });
+  }),
+);
 
-app.get('/api/documents',auth,asyncRoute(async(req,res)=>{const q=`%${String(req.query.q||'').trim()}%`,year=String(req.query.year||'all'),teamId=String(req.query.team_id||'all'),user=req.session.user,visibilitySql=user.role==='admin'?`1=1`:`(d.visibility='all_teams' OR EXISTS(SELECT 1 FROM user_teams visible_membership WHERE visible_membership.user_id=? AND visible_membership.team_id=d.issuing_team_id))`,visibilityParams=user.role==='admin'?[]:[user.id],params=[...visibilityParams,q,q,year,year,teamId,teamId];const [[documents],[filterTeams],[issueTeams],[yearRows]]=await Promise.all([db.execute(`SELECT d.*,t.name team_name,t.color team_color,u.name creator_name FROM documents d JOIN teams t ON t.id=d.issuing_team_id JOIN users u ON u.id=d.created_by WHERE ${visibilitySql} AND (d.name LIKE ? OR d.description LIKE ?) AND (?='all' OR d.applicable_year=?) AND (?='all' OR d.issuing_team_id=?) ORDER BY d.applicable_year DESC,d.name`,params),db.execute(`SELECT id,name,color FROM teams t WHERE t.is_active=1 AND (${user.role==='admin'?'1=1':`EXISTS(SELECT 1 FROM documents d WHERE d.issuing_team_id=t.id AND (d.visibility='all_teams' OR EXISTS(SELECT 1 FROM user_teams vm WHERE vm.user_id=? AND vm.team_id=t.id)))`}) ORDER BY sort_order,name`,user.role==='admin'?[]:[user.id]),user.role==='admin'?db.execute('SELECT id,name,color FROM teams WHERE is_active=1 ORDER BY sort_order,name'):db.execute('SELECT t.id,t.name,t.color FROM user_teams ut JOIN teams t ON t.id=ut.team_id WHERE ut.user_id=? AND t.is_active=1 ORDER BY t.sort_order,t.name',[user.id]),db.execute(`SELECT DISTINCT d.applicable_year FROM documents d WHERE ${visibilitySql} ORDER BY d.applicable_year DESC`,visibilityParams)]);for(const document of documents)document.can_edit=user.role==='admin'||Number(document.created_by)===Number(user.id)||await belongsToTeam(user.id,document.issuing_team_id);res.json({documents,filterTeams,issueTeams,years:yearRows.map(x=>Number(x.applicable_year))})}));
+app.get(
+  "/api/documents",
+  auth,
+  asyncRoute(async (req, res) => {
+    const q = `%${String(req.query.q || "").trim()}%`,
+      year = String(req.query.year || "all"),
+      teamId = String(req.query.team_id || "all"),
+      user = req.session.user,
+      visibilitySql =
+        user.role === "admin"
+          ? `1=1`
+          : `(d.visibility='all_teams' OR EXISTS(SELECT 1 FROM user_teams visible_membership WHERE visible_membership.user_id=? AND visible_membership.team_id=d.issuing_team_id))`,
+      visibilityParams = user.role === "admin" ? [] : [user.id],
+      params = [...visibilityParams, q, q, year, year, teamId, teamId];
+    const [[documents], [filterTeams], [issueTeams], [yearRows]] =
+      await Promise.all([
+        db.execute(
+          `SELECT d.*,t.name team_name,t.color team_color,u.name creator_name FROM documents d JOIN teams t ON t.id=d.issuing_team_id JOIN users u ON u.id=d.created_by WHERE ${visibilitySql} AND (d.name LIKE ? OR d.description LIKE ?) AND (?='all' OR d.applicable_year=?) AND (?='all' OR d.issuing_team_id=?) ORDER BY d.applicable_year DESC,d.name`,
+          params,
+        ),
+        db.execute(
+          `SELECT id,name,color FROM teams t WHERE t.is_active=1 AND (${user.role === "admin" ? "1=1" : `EXISTS(SELECT 1 FROM documents d WHERE d.issuing_team_id=t.id AND (d.visibility='all_teams' OR EXISTS(SELECT 1 FROM user_teams vm WHERE vm.user_id=? AND vm.team_id=t.id)))`}) ORDER BY sort_order,name`,
+          user.role === "admin" ? [] : [user.id],
+        ),
+        user.role === "admin"
+          ? db.execute(
+              "SELECT id,name,color FROM teams WHERE is_active=1 ORDER BY sort_order,name",
+            )
+          : db.execute(
+              "SELECT t.id,t.name,t.color FROM user_teams ut JOIN teams t ON t.id=ut.team_id WHERE ut.user_id=? AND t.is_active=1 ORDER BY t.sort_order,t.name",
+              [user.id],
+            ),
+        db.execute(
+          `SELECT DISTINCT d.applicable_year FROM documents d WHERE ${visibilitySql} ORDER BY d.applicable_year DESC`,
+          visibilityParams,
+        ),
+      ]);
+    for (const document of documents)
+      document.can_edit =
+        user.role === "admin" ||
+        Number(document.created_by) === Number(user.id) ||
+        (await belongsToTeam(user.id, document.issuing_team_id));
+    res.json({
+      documents,
+      filterTeams,
+      issueTeams,
+      years: yearRows.map((x) => Number(x.applicable_year)),
+    });
+  }),
+);
 
-app.post('/api/documents',auth,asyncRoute(async(req,res)=>{const name=String(req.body.name||'').trim(),linkUrl=String(req.body.link_url||'').trim(),description=String(req.body.description||'').trim(),year=Number(req.body.applicable_year),teamId=Number(req.body.issuing_team_id),visibility=String(req.body.visibility||'issuing_team');let parsed;try{parsed=new URL(linkUrl)}catch{}if(!name||name.length>200||!description||!parsed||!['http:','https:'].includes(parsed.protocol)||!Number.isInteger(year)||year<1900||year>2100||!Number.isInteger(teamId)||!['all_teams','issuing_team'].includes(visibility))return res.status(400).json({error:'Complete every document field with valid information.'});const [teams]=await db.execute('SELECT id FROM teams WHERE id=? AND is_active=1',[teamId]);if(!teams.length)return res.status(400).json({error:'The issuing team is unavailable.'});if(req.session.user.role!=='admin'){const [membership]=await db.execute('SELECT 1 FROM user_teams WHERE user_id=? AND team_id=?',[req.session.user.id,teamId]);if(!membership.length)return res.status(403).json({error:'You may only issue documents for your teams.'})}const [result]=await db.execute('INSERT INTO documents(name,link_url,description,applicable_year,issuing_team_id,visibility,created_by) VALUES(?,?,?,?,?,?,?)',[name,linkUrl,description,year,teamId,visibility,req.session.user.id]);res.status(201).json({id:result.insertId})}));
-app.patch('/api/documents/:id',auth,asyncRoute(async(req,res)=>{const [existingRows]=await db.execute('SELECT * FROM documents WHERE id=?',[req.params.id]),existing=one(existingRows);if(!existing)return res.status(404).json({error:'Document not found.'});const user=req.session.user,canEdit=user.role==='admin'||Number(existing.created_by)===Number(user.id)||await belongsToTeam(user.id,existing.issuing_team_id);if(!canEdit)return res.status(403).json({error:'You cannot edit this document.'});const name=String(req.body.name||'').trim(),linkUrl=String(req.body.link_url||'').trim(),description=String(req.body.description||'').trim(),year=Number(req.body.applicable_year),teamId=Number(req.body.issuing_team_id),visibility=String(req.body.visibility||'issuing_team');let parsed;try{parsed=new URL(linkUrl)}catch{}if(!name||name.length>200||!description||!parsed||!['http:','https:'].includes(parsed.protocol)||!Number.isInteger(year)||year<1900||year>2100||!Number.isInteger(teamId)||!['all_teams','issuing_team'].includes(visibility))return res.status(400).json({error:'Complete every document field with valid information.'});const [teams]=await db.execute('SELECT id FROM teams WHERE id=? AND is_active=1',[teamId]);if(!teams.length)return res.status(400).json({error:'The issuing team is unavailable.'});if(user.role!=='admin'){const canIssueForTarget=await belongsToTeam(user.id,teamId);if(!canIssueForTarget)return res.status(403).json({error:'You may only issue documents for your teams.'})}await db.execute('UPDATE documents SET name=?,link_url=?,description=?,applicable_year=?,issuing_team_id=?,visibility=? WHERE id=?',[name,linkUrl,description,year,teamId,visibility,req.params.id]);res.json({ok:true})}));
+app.post(
+  "/api/documents",
+  auth,
+  asyncRoute(async (req, res) => {
+    const name = String(req.body.name || "").trim(),
+      linkUrl = String(req.body.link_url || "").trim(),
+      description = String(req.body.description || "").trim(),
+      year = Number(req.body.applicable_year),
+      teamId = Number(req.body.issuing_team_id),
+      visibility = String(req.body.visibility || "issuing_team");
+    let parsed;
+    try {
+      parsed = new URL(linkUrl);
+    } catch {}
+    if (
+      !name ||
+      name.length > 200 ||
+      !description ||
+      !parsed ||
+      !["http:", "https:"].includes(parsed.protocol) ||
+      !Number.isInteger(year) ||
+      year < 1900 ||
+      year > 2100 ||
+      !Number.isInteger(teamId) ||
+      !["all_teams", "issuing_team"].includes(visibility)
+    )
+      return res
+        .status(400)
+        .json({
+          error: "Complete every document field with valid information.",
+        });
+    const [teams] = await db.execute(
+      "SELECT id FROM teams WHERE id=? AND is_active=1",
+      [teamId],
+    );
+    if (!teams.length)
+      return res
+        .status(400)
+        .json({ error: "The issuing team is unavailable." });
+    if (req.session.user.role !== "admin") {
+      const [membership] = await db.execute(
+        "SELECT 1 FROM user_teams WHERE user_id=? AND team_id=?",
+        [req.session.user.id, teamId],
+      );
+      if (!membership.length)
+        return res
+          .status(403)
+          .json({ error: "You may only issue documents for your teams." });
+    }
+    const [result] = await db.execute(
+      "INSERT INTO documents(name,link_url,description,applicable_year,issuing_team_id,visibility,created_by) VALUES(?,?,?,?,?,?,?)",
+      [
+        name,
+        linkUrl,
+        description,
+        year,
+        teamId,
+        visibility,
+        req.session.user.id,
+      ],
+    );
+    res.status(201).json({ id: result.insertId });
+  }),
+);
+app.patch(
+  "/api/documents/:id",
+  auth,
+  asyncRoute(async (req, res) => {
+    const [existingRows] = await db.execute(
+        "SELECT * FROM documents WHERE id=?",
+        [req.params.id],
+      ),
+      existing = one(existingRows);
+    if (!existing)
+      return res.status(404).json({ error: "Document not found." });
+    const user = req.session.user,
+      canEdit =
+        user.role === "admin" ||
+        Number(existing.created_by) === Number(user.id) ||
+        (await belongsToTeam(user.id, existing.issuing_team_id));
+    if (!canEdit)
+      return res.status(403).json({ error: "You cannot edit this document." });
+    const name = String(req.body.name || "").trim(),
+      linkUrl = String(req.body.link_url || "").trim(),
+      description = String(req.body.description || "").trim(),
+      year = Number(req.body.applicable_year),
+      teamId = Number(req.body.issuing_team_id),
+      visibility = String(req.body.visibility || "issuing_team");
+    let parsed;
+    try {
+      parsed = new URL(linkUrl);
+    } catch {}
+    if (
+      !name ||
+      name.length > 200 ||
+      !description ||
+      !parsed ||
+      !["http:", "https:"].includes(parsed.protocol) ||
+      !Number.isInteger(year) ||
+      year < 1900 ||
+      year > 2100 ||
+      !Number.isInteger(teamId) ||
+      !["all_teams", "issuing_team"].includes(visibility)
+    )
+      return res
+        .status(400)
+        .json({
+          error: "Complete every document field with valid information.",
+        });
+    const [teams] = await db.execute(
+      "SELECT id FROM teams WHERE id=? AND is_active=1",
+      [teamId],
+    );
+    if (!teams.length)
+      return res
+        .status(400)
+        .json({ error: "The issuing team is unavailable." });
+    if (user.role !== "admin") {
+      const canIssueForTarget = await belongsToTeam(user.id, teamId);
+      if (!canIssueForTarget)
+        return res
+          .status(403)
+          .json({ error: "You may only issue documents for your teams." });
+    }
+    await db.execute(
+      "UPDATE documents SET name=?,link_url=?,description=?,applicable_year=?,issuing_team_id=?,visibility=? WHERE id=?",
+      [name, linkUrl, description, year, teamId, visibility, req.params.id],
+    );
+    res.json({ ok: true });
+  }),
+);
 
-app.get('/api/archive',auth,asyncRoute(async(req,res)=>{const q=`%${String(req.query.q||'')}%`,s=activityScope(req.session.user);const [rows]=await db.execute(`SELECT a.*,te.name team_name,te.color team_color,u.name creator_name,GROUP_CONCAT(DISTINCT involved.name ORDER BY involved.name SEPARATOR ', ') team_names,COUNT(DISTINCT t.id) task_count,COUNT(DISTINCT t.id) done_count,COUNT(DISTINCT p.user_id) participant_count,MAX(n.created_at) last_update FROM activities a JOIN teams te ON te.id=a.team_id JOIN users u ON u.id=a.creator_id JOIN activity_teams ats ON ats.activity_id=a.id JOIN teams involved ON involved.id=ats.team_id LEFT JOIN tasks t ON t.activity_id=a.id LEFT JOIN participants p ON p.activity_id=a.id AND p.state='confirmed' LEFT JOIN updates n ON n.activity_id=a.id WHERE ${s.sql} AND a.status='completed' AND (a.title LIKE ? OR a.description LIKE ? OR COALESCE(a.result_summary,'') LIKE ?) GROUP BY a.id ORDER BY a.deadline DESC`,[...s.params,q,q,q]);res.json(rows)}));
+app.get(
+  "/api/archive",
+  auth,
+  asyncRoute(async (req, res) => {
+    const q = `%${String(req.query.q || "")}%`,
+      s = activityScope(req.session.user);
+    const [rows] = await db.execute(
+      `SELECT a.*,te.name team_name,te.color team_color,u.name creator_name,GROUP_CONCAT(DISTINCT involved.name ORDER BY involved.name SEPARATOR ', ') team_names,COUNT(DISTINCT t.id) task_count,COUNT(DISTINCT t.id) done_count,COUNT(DISTINCT p.user_id) participant_count,MAX(n.created_at) last_update FROM activities a JOIN teams te ON te.id=a.team_id JOIN users u ON u.id=a.creator_id JOIN activity_teams ats ON ats.activity_id=a.id JOIN teams involved ON involved.id=ats.team_id LEFT JOIN tasks t ON t.activity_id=a.id LEFT JOIN participants p ON p.activity_id=a.id AND p.state='confirmed' LEFT JOIN updates n ON n.activity_id=a.id WHERE ${s.sql} AND a.status='completed' AND (a.title LIKE ? OR a.description LIKE ? OR COALESCE(a.result_summary,'') LIKE ?) GROUP BY a.id ORDER BY a.deadline DESC`,
+      [...s.params, q, q, q],
+    );
+    res.json(rows);
+  }),
+);
 
-app.get('/api/reports/export',auth,manager,asyncRoute(async(req,res)=>{
-  const start=String(req.query.start||''),end=String(req.query.end||''),teamId=Number(req.query.team_id||0);
-  const vietnamese=req.query.lang==='vi',reportLabels={Activities:'Hoạt động',Activity:'Hoạt động',Type:'Loại',Status:'Trạng thái','Start date':'Ngày bắt đầu',Deadline:'Hạn hoàn thành',Priority:'Mức ưu tiên','Coordinating team':'Ban điều phối','Involved teams':'Các ban tham gia',Tasks:'Công việc','Completed tasks':'Công việc hoàn thành',Participants:'Người tham gia','Team members':'Thành viên ban',Team:'Ban',Member:'Thành viên',Email:'Email',Role:'Vai trò','Assigned tasks':'Công việc được giao','Confirmed activities':'Hoạt động đã xác nhận','Volunteered activities':'Hoạt động đã đăng ký','Member contributions':'Đóng góp của thành viên','Activity status':'Trạng thái hoạt động',Task:'Công việc','Task status':'Trạng thái công việc','Task deadline':'Hạn công việc','Completed at':'Thời điểm hoàn thành',Participation:'Tham gia',Responsibility:'Nhiệm vụ'},valueLabels={event:'sự kiện',assigned:'được giao',proposed:'đề xuất',approved:'đã duyệt',active:'đang hoạt động',completed:'hoàn thành',cancelled:'đã hủy',low:'thấp',medium:'trung bình',high:'cao',urgent:'khẩn cấp',open:'đang mở',in_progress:'đang thực hiện',review:'đang duyệt',done:'hoàn thành',confirmed:'đã xác nhận',volunteered:'đã đăng ký',admin:'quản trị viên',leader:'trưởng ban',member:'thành viên'};
-  const h=label=>vietnamese?(reportLabels[label]||label):label,localizedFields=new Set(['type','status','priority','role','activity_status','task_status','participation_state']),localizeRows=rows=>vietnamese?rows.map(row=>Object.fromEntries(Object.entries(row).map(([key,value])=>[key,localizedFields.has(key)?valueLabels[value]||value:value]))):rows;
-  const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&new Date(`${value}T00:00:00Z`).toISOString().slice(0,10)===value;
-  if(!validDate(start)||!validDate(end)||start>end)return res.status(400).json({error:'Choose a valid report date range.'});
-  const allowedTeams=await managedTeamIds(req.session.user);
-  if(teamId&&(!Number.isInteger(teamId)||!allowedTeams.includes(teamId)))return res.status(403).json({error:'You cannot export a report for this team.'});
-  const reportTeams=teamId?[teamId]:allowedTeams;
-  if(!reportTeams.length)return res.status(400).json({error:'No reportable teams are available.'});
-  const marks=reportTeams.map(()=>'?').join(','),dateParams=[end,start],teamParams=[...reportTeams];
-  const [[activities],[members],[contributions]]=await Promise.all([
-    db.execute(`SELECT a.id,a.title,a.type,a.status,a.start_date,a.deadline,a.priority,primary_team.name coordinating_team,GROUP_CONCAT(DISTINCT involved.name ORDER BY involved.name SEPARATOR ', ') involved_teams,COUNT(DISTINCT tk.id) task_count,COUNT(DISTINCT CASE WHEN tk.status='done' THEN tk.id END) completed_tasks,COUNT(DISTINCT CASE WHEN p.state='confirmed' THEN p.user_id END) confirmed_participants FROM activities a JOIN teams primary_team ON primary_team.id=a.team_id JOIN activity_teams at_scope ON at_scope.activity_id=a.id AND at_scope.team_id IN (${marks}) JOIN activity_teams at_all ON at_all.activity_id=a.id JOIN teams involved ON involved.id=at_all.team_id LEFT JOIN tasks tk ON tk.activity_id=a.id LEFT JOIN participants p ON p.activity_id=a.id WHERE COALESCE(a.start_date,a.deadline)<=? AND a.deadline>=? GROUP BY a.id ORDER BY a.deadline,a.title`,[...teamParams,...dateParams]),
-    db.execute(`SELECT team.name team_name,u.name member_name,u.email,u.role,COUNT(DISTINCT tk.id) assigned_tasks,COUNT(DISTINCT CASE WHEN tk.status='done' THEN tk.id END) completed_tasks,COUNT(DISTINCT CASE WHEN p.state='confirmed' THEN p.activity_id END) confirmed_activities,COUNT(DISTINCT CASE WHEN p.state='volunteered' THEN p.activity_id END) volunteered_activities FROM user_teams ut JOIN teams team ON team.id=ut.team_id JOIN users u ON u.id=ut.user_id LEFT JOIN task_assignees ta ON ta.user_id=u.id LEFT JOIN tasks tk ON tk.id=ta.task_id AND tk.team_id=ut.team_id AND EXISTS(SELECT 1 FROM activities task_activity WHERE task_activity.id=tk.activity_id AND COALESCE(task_activity.start_date,task_activity.deadline)<=? AND task_activity.deadline>=?) LEFT JOIN participants p ON p.user_id=u.id AND p.state!='declined' AND EXISTS(SELECT 1 FROM activities participant_activity WHERE participant_activity.id=p.activity_id AND COALESCE(participant_activity.start_date,participant_activity.deadline)<=? AND participant_activity.deadline>=?) WHERE ut.team_id IN (${marks}) AND u.is_active=1 GROUP BY ut.team_id,u.id ORDER BY team.name,u.name`,[...dateParams,...dateParams,...teamParams]),
-    db.execute(`SELECT team.name team_name,u.name member_name,u.email,u.role,a.title activity_title,a.status activity_status,tk.title task_title,tk.status task_status,tk.deadline task_deadline,tk.completed_at,p.state participation_state,p.responsibility FROM user_teams ut JOIN teams team ON team.id=ut.team_id JOIN users u ON u.id=ut.user_id JOIN activities a ON COALESCE(a.start_date,a.deadline)<=? AND a.deadline>=? AND (EXISTS(SELECT 1 FROM tasks scoped_task JOIN task_assignees scoped_assignee ON scoped_assignee.task_id=scoped_task.id WHERE scoped_task.activity_id=a.id AND scoped_task.team_id=ut.team_id AND scoped_assignee.user_id=u.id) OR EXISTS(SELECT 1 FROM participants scoped_participant WHERE scoped_participant.activity_id=a.id AND scoped_participant.user_id=u.id AND scoped_participant.state!='declined')) LEFT JOIN tasks tk ON tk.activity_id=a.id AND tk.team_id=ut.team_id AND EXISTS(SELECT 1 FROM task_assignees assigned WHERE assigned.task_id=tk.id AND assigned.user_id=u.id) LEFT JOIN participants p ON p.activity_id=a.id AND p.user_id=u.id AND p.state!='declined' WHERE ut.team_id IN (${marks}) AND u.is_active=1 AND (tk.id IS NOT NULL OR p.user_id IS NOT NULL) GROUP BY ut.team_id,u.id,a.id,tk.id,p.user_id ORDER BY team.name,u.name,a.deadline,tk.deadline`,[...dateParams,...teamParams])
-  ]);
-  const workbook=new ExcelJS.Workbook();workbook.creator='SEEE Activity Hub';workbook.created=new Date();
-  const addSheet=(name,columns,rows)=>{const sheet=workbook.addWorksheet(name,{views:[{state:'frozen',ySplit:1}]});sheet.columns=columns.map(([header,key,width])=>({header,key,width}));sheet.getRow(1).font={bold:true,color:{argb:'FFFFFFFF'}};sheet.getRow(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF214F40'}};sheet.autoFilter={from:'A1',to:`${sheet.getColumn(columns.length).letter}1`};rows.forEach(row=>sheet.addRow(row));return sheet};
-  addSheet(h('Activities'),[['Activity','title',34],['Type','type',14],['Status','status',14],['Start date','start_date',14],['Deadline','deadline',14],['Priority','priority',12],['Coordinating team','coordinating_team',24],['Involved teams','involved_teams',38],['Tasks','task_count',10],['Completed tasks','completed_tasks',16],['Participants','confirmed_participants',14]].map(([label,...rest])=>[h(label),...rest]),localizeRows(activities));
-  addSheet(h('Team members'),[['Team','team_name',24],['Member','member_name',24],['Email','email',28],['Role','role',13],['Assigned tasks','assigned_tasks',15],['Completed tasks','completed_tasks',16],['Confirmed activities','confirmed_activities',19],['Volunteered activities','volunteered_activities',21]].map(([label,...rest])=>[h(label),...rest]),localizeRows(members));
-  addSheet(h('Member contributions'),[['Team','team_name',24],['Member','member_name',24],['Email','email',28],['Role','role',13],['Activity','activity_title',34],['Activity status','activity_status',15],['Task','task_title',34],['Task status','task_status',14],['Task deadline','task_deadline',15],['Completed at','completed_at',19],['Participation','participation_state',15],['Responsibility','responsibility',28]].map(([label,...rest])=>[h(label),...rest]),localizeRows(contributions));
-  const buffer=await workbook.xlsx.writeBuffer(),teamLabel=teamId?`team-${teamId}`:'all-teams';
-  res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');res.setHeader('Content-Disposition',`attachment; filename="seee-report-${teamLabel}-${start}-to-${end}.xlsx"`);res.send(Buffer.from(buffer));
-}));
+app.get(
+  "/api/reports/export",
+  auth,
+  manager,
+  asyncRoute(async (req, res) => {
+    const start = String(req.query.start || ""),
+      end = String(req.query.end || ""),
+      teamId = Number(req.query.team_id || 0);
+    const vietnamese = req.query.lang === "vi",
+      reportLabels = {
+        Activities: "Hoạt động",
+        Activity: "Hoạt động",
+        Type: "Loại",
+        Status: "Trạng thái",
+        "Start date": "Ngày bắt đầu",
+        Deadline: "Hạn hoàn thành",
+        Priority: "Mức ưu tiên",
+        "Coordinating team": "Ban điều phối",
+        "Involved teams": "Các ban tham gia",
+        Tasks: "Công việc",
+        "Completed tasks": "Công việc hoàn thành",
+        Participants: "Người tham gia",
+        "Team members": "Thành viên ban",
+        Team: "Ban",
+        Member: "Thành viên",
+        Email: "Email",
+        Role: "Vai trò",
+        "Assigned tasks": "Công việc được giao",
+        "Confirmed activities": "Hoạt động đã xác nhận",
+        "Volunteered activities": "Hoạt động đã đăng ký",
+        "Member contributions": "Đóng góp của thành viên",
+        "Activity status": "Trạng thái hoạt động",
+        Task: "Công việc",
+        "Task status": "Trạng thái công việc",
+        "Task deadline": "Hạn công việc",
+        "Completed at": "Thời điểm hoàn thành",
+        Participation: "Tham gia",
+        Responsibility: "Nhiệm vụ",
+      },
+      valueLabels = {
+        event: "sự kiện",
+        assigned: "được giao",
+        proposed: "đề xuất",
+        approved: "đã duyệt",
+        active: "đang hoạt động",
+        completed: "hoàn thành",
+        cancelled: "đã hủy",
+        low: "thấp",
+        medium: "trung bình",
+        high: "cao",
+        urgent: "khẩn cấp",
+        open: "đang mở",
+        in_progress: "đang thực hiện",
+        review: "đang duyệt",
+        done: "hoàn thành",
+        confirmed: "đã xác nhận",
+        volunteered: "đã đăng ký",
+        admin: "quản trị viên",
+        leader: "trưởng ban",
+        member: "thành viên",
+      };
+    const h = (label) => (vietnamese ? reportLabels[label] || label : label),
+      localizedFields = new Set([
+        "type",
+        "status",
+        "priority",
+        "role",
+        "activity_status",
+        "task_status",
+        "participation_state",
+      ]),
+      localizeRows = (rows) =>
+        vietnamese
+          ? rows.map((row) =>
+              Object.fromEntries(
+                Object.entries(row).map(([key, value]) => [
+                  key,
+                  localizedFields.has(key)
+                    ? valueLabels[value] || value
+                    : value,
+                ]),
+              ),
+            )
+          : rows;
+    const validDate = (value) =>
+      /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+      new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+    if (!validDate(start) || !validDate(end) || start > end)
+      return res
+        .status(400)
+        .json({ error: "Choose a valid report date range." });
+    const allowedTeams = await managedTeamIds(req.session.user);
+    if (teamId && (!Number.isInteger(teamId) || !allowedTeams.includes(teamId)))
+      return res
+        .status(403)
+        .json({ error: "You cannot export a report for this team." });
+    const reportTeams = teamId ? [teamId] : allowedTeams;
+    if (!reportTeams.length)
+      return res
+        .status(400)
+        .json({ error: "No reportable teams are available." });
+    const marks = reportTeams.map(() => "?").join(","),
+      dateParams = [end, start],
+      teamParams = [...reportTeams];
+    const [[activities], [members], [contributions]] = await Promise.all([
+      db.execute(
+        `SELECT a.id,a.title,a.type,a.status,a.start_date,a.deadline,a.priority,primary_team.name coordinating_team,GROUP_CONCAT(DISTINCT involved.name ORDER BY involved.name SEPARATOR ', ') involved_teams,COUNT(DISTINCT tk.id) task_count,COUNT(DISTINCT CASE WHEN tk.status='done' THEN tk.id END) completed_tasks,COUNT(DISTINCT CASE WHEN p.state='confirmed' THEN p.user_id END) confirmed_participants FROM activities a JOIN teams primary_team ON primary_team.id=a.team_id JOIN activity_teams at_scope ON at_scope.activity_id=a.id AND at_scope.team_id IN (${marks}) JOIN activity_teams at_all ON at_all.activity_id=a.id JOIN teams involved ON involved.id=at_all.team_id LEFT JOIN tasks tk ON tk.activity_id=a.id LEFT JOIN participants p ON p.activity_id=a.id WHERE COALESCE(a.start_date,a.deadline)<=? AND a.deadline>=? GROUP BY a.id ORDER BY a.deadline,a.title`,
+        [...teamParams, ...dateParams],
+      ),
+      db.execute(
+        `SELECT team.name team_name,u.name member_name,u.email,u.role,COUNT(DISTINCT tk.id) assigned_tasks,COUNT(DISTINCT CASE WHEN tk.status='done' THEN tk.id END) completed_tasks,COUNT(DISTINCT CASE WHEN p.state='confirmed' THEN p.activity_id END) confirmed_activities,COUNT(DISTINCT CASE WHEN p.state='volunteered' THEN p.activity_id END) volunteered_activities FROM user_teams ut JOIN teams team ON team.id=ut.team_id JOIN users u ON u.id=ut.user_id LEFT JOIN task_assignees ta ON ta.user_id=u.id LEFT JOIN tasks tk ON tk.id=ta.task_id AND tk.team_id=ut.team_id AND EXISTS(SELECT 1 FROM activities task_activity WHERE task_activity.id=tk.activity_id AND COALESCE(task_activity.start_date,task_activity.deadline)<=? AND task_activity.deadline>=?) LEFT JOIN participants p ON p.user_id=u.id AND p.state!='declined' AND EXISTS(SELECT 1 FROM activities participant_activity WHERE participant_activity.id=p.activity_id AND COALESCE(participant_activity.start_date,participant_activity.deadline)<=? AND participant_activity.deadline>=?) WHERE ut.team_id IN (${marks}) AND u.is_active=1 GROUP BY ut.team_id,u.id ORDER BY team.name,u.name`,
+        [...dateParams, ...dateParams, ...teamParams],
+      ),
+      db.execute(
+        `SELECT team.name team_name,u.name member_name,u.email,u.role,a.title activity_title,a.status activity_status,tk.title task_title,tk.status task_status,tk.deadline task_deadline,tk.completed_at,p.state participation_state,p.responsibility FROM user_teams ut JOIN teams team ON team.id=ut.team_id JOIN users u ON u.id=ut.user_id JOIN activities a ON COALESCE(a.start_date,a.deadline)<=? AND a.deadline>=? AND (EXISTS(SELECT 1 FROM tasks scoped_task JOIN task_assignees scoped_assignee ON scoped_assignee.task_id=scoped_task.id WHERE scoped_task.activity_id=a.id AND scoped_task.team_id=ut.team_id AND scoped_assignee.user_id=u.id) OR EXISTS(SELECT 1 FROM participants scoped_participant WHERE scoped_participant.activity_id=a.id AND scoped_participant.user_id=u.id AND scoped_participant.state!='declined')) LEFT JOIN tasks tk ON tk.activity_id=a.id AND tk.team_id=ut.team_id AND EXISTS(SELECT 1 FROM task_assignees assigned WHERE assigned.task_id=tk.id AND assigned.user_id=u.id) LEFT JOIN participants p ON p.activity_id=a.id AND p.user_id=u.id AND p.state!='declined' WHERE ut.team_id IN (${marks}) AND u.is_active=1 AND (tk.id IS NOT NULL OR p.user_id IS NOT NULL) GROUP BY ut.team_id,u.id,a.id,tk.id,p.user_id ORDER BY team.name,u.name,a.deadline,tk.deadline`,
+        [...dateParams, ...teamParams],
+      ),
+    ]);
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "SEEE Activity Hub";
+    workbook.created = new Date();
+    const addSheet = (name, columns, rows) => {
+      const sheet = workbook.addWorksheet(name, {
+        views: [{ state: "frozen", ySplit: 1 }],
+      });
+      sheet.columns = columns.map(([header, key, width]) => ({
+        header,
+        key,
+        width,
+      }));
+      sheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+      sheet.getRow(1).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF214F40" },
+      };
+      sheet.autoFilter = {
+        from: "A1",
+        to: `${sheet.getColumn(columns.length).letter}1`,
+      };
+      rows.forEach((row) => sheet.addRow(row));
+      return sheet;
+    };
+    addSheet(
+      h("Activities"),
+      [
+        ["Activity", "title", 34],
+        ["Type", "type", 14],
+        ["Status", "status", 14],
+        ["Start date", "start_date", 14],
+        ["Deadline", "deadline", 14],
+        ["Priority", "priority", 12],
+        ["Coordinating team", "coordinating_team", 24],
+        ["Involved teams", "involved_teams", 38],
+        ["Tasks", "task_count", 10],
+        ["Completed tasks", "completed_tasks", 16],
+        ["Participants", "confirmed_participants", 14],
+      ].map(([label, ...rest]) => [h(label), ...rest]),
+      localizeRows(activities),
+    );
+    addSheet(
+      h("Team members"),
+      [
+        ["Team", "team_name", 24],
+        ["Member", "member_name", 24],
+        ["Email", "email", 28],
+        ["Role", "role", 13],
+        ["Assigned tasks", "assigned_tasks", 15],
+        ["Completed tasks", "completed_tasks", 16],
+        ["Confirmed activities", "confirmed_activities", 19],
+        ["Volunteered activities", "volunteered_activities", 21],
+      ].map(([label, ...rest]) => [h(label), ...rest]),
+      localizeRows(members),
+    );
+    addSheet(
+      h("Member contributions"),
+      [
+        ["Team", "team_name", 24],
+        ["Member", "member_name", 24],
+        ["Email", "email", 28],
+        ["Role", "role", 13],
+        ["Activity", "activity_title", 34],
+        ["Activity status", "activity_status", 15],
+        ["Task", "task_title", 34],
+        ["Task status", "task_status", 14],
+        ["Task deadline", "task_deadline", 15],
+        ["Completed at", "completed_at", 19],
+        ["Participation", "participation_state", 15],
+        ["Responsibility", "responsibility", 28],
+      ].map(([label, ...rest]) => [h(label), ...rest]),
+      localizeRows(contributions),
+    );
+    const buffer = await workbook.xlsx.writeBuffer(),
+      teamLabel = teamId ? `team-${teamId}` : "all-teams";
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="seee-report-${teamLabel}-${start}-to-${end}.xlsx"`,
+    );
+    res.send(Buffer.from(buffer));
+  }),
+);
 
-app.post('/api/tasks/:id/attachments',auth,taskUpload.single('file'),asyncRoute(async(req,res)=>{const [tasks]=await db.execute('SELECT id,activity_id FROM tasks WHERE id=?',[req.params.id]);const task=one(tasks);if(!task||!(await visibleActivity(req.session.user,task.activity_id)))return res.status(404).json({error:'Task not found.'});const kind=attachmentKinds.includes(req.body.kind)?req.body.kind:'clarification';const linkUrl=String(req.body.link_url||'').trim();if(linkUrl&&!/^https?:\/\//i.test(linkUrl))return res.status(400).json({error:'Links must begin with http:// or https://.'});if(!req.file&&!linkUrl)return res.status(400).json({error:'Choose a file or provide a relevant link.'});let storedName=null;try{if(req.file){const ext=path.extname(req.file.originalname).toLowerCase();if(!allowedExtensions.has(ext))return res.status(415).json({error:'This file type is not supported.'});const [usageRows]=await db.execute('SELECT COALESCE(SUM(size_bytes),0) used FROM task_attachments WHERE task_id=?',[task.id]);if(Number(usageRows[0].used)+req.file.size>50*1024*1024)return res.status(413).json({error:'This task has reached its shared 50 MB upload limit.'});storedName=`${task.id}-${crypto.randomUUID()}${ext}`;await fs.promises.writeFile(path.join(attachmentRoot,storedName),req.file.buffer,{flag:'wx'})}const label=String(req.body.label||req.file?.originalname||linkUrl).trim().slice(0,180);const [result]=await db.execute('INSERT INTO task_attachments(task_id,user_id,kind,label,link_url,stored_name,original_name,mime_type,size_bytes) VALUES(?,?,?,?,?,?,?,?,?)',[task.id,req.session.user.id,kind,label,linkUrl||null,storedName,req.file?.originalname||null,req.file?.mimetype||null,req.file?.size||0]);res.status(201).json({id:result.insertId})}catch(e){if(storedName)await fs.promises.unlink(path.join(attachmentRoot,storedName)).catch(()=>{});throw e}}));
+app.post(
+  "/api/tasks/:id/attachments",
+  auth,
+  taskUpload.single("file"),
+  asyncRoute(async (req, res) => {
+    const [tasks] = await db.execute(
+      "SELECT id,activity_id FROM tasks WHERE id=?",
+      [req.params.id],
+    );
+    const task = one(tasks);
+    if (!task || !(await visibleActivity(req.session.user, task.activity_id)))
+      return res.status(404).json({ error: "Task not found." });
+    const kind = attachmentKinds.includes(req.body.kind)
+      ? req.body.kind
+      : "clarification";
+    const linkUrl = String(req.body.link_url || "").trim();
+    if (linkUrl && !/^https?:\/\//i.test(linkUrl))
+      return res
+        .status(400)
+        .json({ error: "Links must begin with http:// or https://." });
+    if (!req.file && !linkUrl)
+      return res
+        .status(400)
+        .json({ error: "Choose a file or provide a relevant link." });
+    let storedName = null;
+    try {
+      if (req.file) {
+        const ext = path.extname(req.file.originalname).toLowerCase();
+        if (!allowedExtensions.has(ext))
+          return res
+            .status(415)
+            .json({ error: "This file type is not supported." });
+        const [usageRows] = await db.execute(
+          "SELECT COALESCE(SUM(size_bytes),0) used FROM task_attachments WHERE task_id=?",
+          [task.id],
+        );
+        if (Number(usageRows[0].used) + req.file.size > 50 * 1024 * 1024)
+          return res
+            .status(413)
+            .json({
+              error: "This task has reached its shared 50 MB upload limit.",
+            });
+        storedName = `${task.id}-${crypto.randomUUID()}${ext}`;
+        await fs.promises.writeFile(
+          path.join(attachmentRoot, storedName),
+          req.file.buffer,
+          { flag: "wx" },
+        );
+      }
+      const label = String(req.body.label || req.file?.originalname || linkUrl)
+        .trim()
+        .slice(0, 180);
+      const [result] = await db.execute(
+        "INSERT INTO task_attachments(task_id,user_id,kind,label,link_url,stored_name,original_name,mime_type,size_bytes) VALUES(?,?,?,?,?,?,?,?,?)",
+        [
+          task.id,
+          req.session.user.id,
+          kind,
+          label,
+          linkUrl || null,
+          storedName,
+          req.file?.originalname || null,
+          req.file?.mimetype || null,
+          req.file?.size || 0,
+        ],
+      );
+      res.status(201).json({ id: result.insertId });
+    } catch (e) {
+      if (storedName)
+        await fs.promises
+          .unlink(path.join(attachmentRoot, storedName))
+          .catch(() => {});
+      throw e;
+    }
+  }),
+);
 
-app.get('/api/task-attachments/:id/content',auth,asyncRoute(async(req,res)=>{const [rows]=await db.execute('SELECT x.*,t.activity_id FROM task_attachments x JOIN tasks t ON t.id=x.task_id WHERE x.id=?',[req.params.id]);const item=one(rows);if(!item||!item.stored_name||!(await visibleActivity(req.session.user,item.activity_id)))return res.status(404).json({error:'Attachment not found.'});const filePath=path.join(attachmentRoot,path.basename(item.stored_name));if(!fs.existsSync(filePath))return res.status(404).json({error:'Stored file not found.'});res.type(item.mime_type||'application/octet-stream');res.setHeader('Content-Disposition',`${String(item.mime_type||'').startsWith('image/')?'inline':'attachment'}; filename*=UTF-8''${encodeURIComponent(item.original_name)}`);res.sendFile(filePath)}));
+app.get(
+  "/api/task-attachments/:id/content",
+  auth,
+  asyncRoute(async (req, res) => {
+    const [rows] = await db.execute(
+      "SELECT x.*,t.activity_id FROM task_attachments x JOIN tasks t ON t.id=x.task_id WHERE x.id=?",
+      [req.params.id],
+    );
+    const item = one(rows);
+    if (
+      !item ||
+      !item.stored_name ||
+      !(await visibleActivity(req.session.user, item.activity_id))
+    )
+      return res.status(404).json({ error: "Attachment not found." });
+    const filePath = path.join(attachmentRoot, path.basename(item.stored_name));
+    if (!fs.existsSync(filePath))
+      return res.status(404).json({ error: "Stored file not found." });
+    res.type(item.mime_type || "application/octet-stream");
+    res.setHeader(
+      "Content-Disposition",
+      `${String(item.mime_type || "").startsWith("image/") ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(item.original_name)}`,
+    );
+    res.sendFile(filePath);
+  }),
+);
 
-app.get('/api/tasks/:id',auth,asyncRoute(async(req,res)=>{const [taskRows]=await db.execute(`SELECT t.*,a.title activity_title,a.description activity_description,a.status activity_status,a.deadline activity_deadline,te.name team_name,GROUP_CONCAT(DISTINCT u.name ORDER BY u.name SEPARATOR ', ') assignee_name,GROUP_CONCAT(DISTINCT u.id ORDER BY u.id) assignee_ids FROM tasks t JOIN activities a ON a.id=t.activity_id JOIN teams te ON te.id=t.team_id LEFT JOIN task_assignees ta ON ta.task_id=t.id LEFT JOIN users u ON u.id=ta.user_id WHERE t.id=? GROUP BY t.id`,[req.params.id]);const task=one(taskRows);if(!task||!(await visibleActivity(req.session.user,task.activity_id)))return res.status(404).json({error:'Task not found.'});const [[attachments],[updates]]=await Promise.all([db.execute('SELECT x.id,x.task_id,x.kind,x.label,x.link_url,x.original_name,x.mime_type,x.size_bytes,x.created_at,u.name user_name FROM task_attachments x JOIN users u ON u.id=x.user_id WHERE x.task_id=? ORDER BY x.created_at DESC',[task.id]),db.execute('SELECT n.*,u.name user_name,u.avatar_color FROM updates n JOIN users u ON u.id=n.user_id WHERE n.task_id=? ORDER BY n.created_at DESC',[task.id])]);const assigned=String(task.assignee_ids||'').split(',').map(Number).includes(req.session.user.id),manages=await canManageTeam(req.session.user,task.team_id);res.json({task,attachments,updates,canUpdate:assigned||manages})}));
+app.get(
+  "/api/tasks/:id",
+  auth,
+  asyncRoute(async (req, res) => {
+    const [taskRows] = await db.execute(
+      `SELECT t.*,a.title activity_title,a.description activity_description,a.status activity_status,a.deadline activity_deadline,te.name team_name,GROUP_CONCAT(DISTINCT u.name ORDER BY u.name SEPARATOR ', ') assignee_name,GROUP_CONCAT(DISTINCT u.id ORDER BY u.id) assignee_ids FROM tasks t JOIN activities a ON a.id=t.activity_id JOIN teams te ON te.id=t.team_id LEFT JOIN task_assignees ta ON ta.task_id=t.id LEFT JOIN users u ON u.id=ta.user_id WHERE t.id=? GROUP BY t.id`,
+      [req.params.id],
+    );
+    const task = one(taskRows);
+    if (!task || !(await visibleActivity(req.session.user, task.activity_id)))
+      return res.status(404).json({ error: "Task not found." });
+    const [[attachments], [updates]] = await Promise.all([
+      db.execute(
+        "SELECT x.id,x.task_id,x.kind,x.label,x.link_url,x.original_name,x.mime_type,x.size_bytes,x.created_at,u.name user_name FROM task_attachments x JOIN users u ON u.id=x.user_id WHERE x.task_id=? ORDER BY x.created_at DESC",
+        [task.id],
+      ),
+      db.execute(
+        "SELECT n.*,u.name user_name,u.avatar_color FROM updates n JOIN users u ON u.id=n.user_id WHERE n.task_id=? ORDER BY n.created_at DESC",
+        [task.id],
+      ),
+    ]);
+    const assigned = String(task.assignee_ids || "")
+        .split(",")
+        .map(Number)
+        .includes(req.session.user.id),
+      manages = await canManageTeam(req.session.user, task.team_id);
+    res.json({ task, attachments, updates, canUpdate: assigned || manages });
+  }),
+);
 
-app.use('/api',(_req,res)=>res.status(404).json({error:'Endpoint not found.'}));
-app.get(/.*/,(_req,res)=>res.sendFile(applicationShell));
-app.use((err,req,res,_next)=>{logger.error(`${req.method} ${req.originalUrl} failed.`,err);console.error(err);if(res.headersSent)return;if(err instanceof multer.MulterError)return res.status(err.code==='LIMIT_FILE_SIZE'?413:400).json({error:err.code==='LIMIT_FILE_SIZE'?'A single file cannot exceed 50 MB.':err.message});res.status(err.code==='ER_DUP_ENTRY'?409:500).json({error:err.code==='ER_DUP_ENTRY'?'That item already exists.':'Something went wrong. Please try again.'})});
-const server=app.listen(port,()=>{logger.info(`SEEE Activity Hub v${packageInfo.version} started on port ${port}.`);console.log(`SEEE Activity Hub running on port ${port}`)});
-server.on('error',error=>{logger.error(`HTTP server could not start on port ${port}.`,error);console.error(error)});
-process.on('uncaughtException',error=>{logger.error('Uncaught exception terminated the application.',error);console.error(error);process.exit(1)});
-process.on('unhandledRejection',reason=>{logger.error('Unhandled promise rejection.',reason);console.error(reason)});
-const shutdown=signal=>{logger.info(`Application received ${signal}; shutting down.`);server.close(()=>db.end().finally(()=>process.exit(0)))};
-process.once('SIGTERM',()=>shutdown('SIGTERM'));
-process.once('SIGINT',()=>shutdown('SIGINT'));
+app.use("/api", (_req, res) =>
+  res.status(404).json({ error: "Endpoint not found." }),
+);
+app.get(/.*/, (_req, res) => res.sendFile(applicationShell));
+app.use((err, req, res, _next) => {
+  logger.error(`${req.method} ${req.originalUrl} failed.`, err);
+  console.error(err);
+  if (res.headersSent) return;
+  if (err instanceof multer.MulterError)
+    return res
+      .status(err.code === "LIMIT_FILE_SIZE" ? 413 : 400)
+      .json({
+        error:
+          err.code === "LIMIT_FILE_SIZE"
+            ? "A single file cannot exceed 50 MB."
+            : err.message,
+      });
+  res
+    .status(err.code === "ER_DUP_ENTRY" ? 409 : 500)
+    .json({
+      error:
+        err.code === "ER_DUP_ENTRY"
+          ? "That item already exists."
+          : "Something went wrong. Please try again.",
+    });
+});
+const server = app.listen(port, () => {
+  logger.info(
+    `SEEE Activity Hub v${packageInfo.version} started on port ${port}.`,
+  );
+  console.log(`SEEE Activity Hub running on port ${port}`);
+});
+server.on("error", (error) => {
+  logger.error(`HTTP server could not start on port ${port}.`, error);
+  console.error(error);
+});
+process.on("uncaughtException", (error) => {
+  logger.error("Uncaught exception terminated the application.", error);
+  console.error(error);
+  process.exit(1);
+});
+process.on("unhandledRejection", (reason) => {
+  logger.error("Unhandled promise rejection.", reason);
+  console.error(reason);
+});
+const shutdown = (signal) => {
+  logger.info(`Application received ${signal}; shutting down.`);
+  server.close(() => db.end().finally(() => process.exit(0)));
+};
+process.once("SIGTERM", () => shutdown("SIGTERM"));
+process.once("SIGINT", () => shutdown("SIGINT"));
