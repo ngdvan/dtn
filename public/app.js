@@ -32,7 +32,34 @@ Object.assign(vi,{'Notifications':'Thông báo','Kept for 7 days':'Lưu trong 7 
 Object.assign(vi,{'Tag a person (optional)':'Gắn thẻ một người (không bắt buộc)','No person tagged':'Không gắn thẻ ai','You were tagged in a comment':'Bạn được gắn thẻ trong một bình luận'});
 const t=s=>lang==='vi'?(vi[s]||s):s;
 let activityCommentPickerLoading=false;
-async function addActivityCommentTagPicker(){const form=$('#update-form');if(!form||form.querySelector('[name="tagged_user_id"]')||activityCommentPickerLoading)return;const match=location.hash.match(/^#activity\/(\d+)/);if(!match)return;activityCommentPickerLoading=true;try{const detail=await api(`/api/activities/${match[1]}`);if(!form.isConnected)return;const label=document.createElement('label');label.className='comment-tag-field';label.innerHTML=`${t('Tag a person (optional)')}<select name="tagged_user_id"><option value="">${t('No person tagged')}</option>${(detail.taggablePeople||[]).map(person=>`<option value="${person.id}">${esc(person.name)}</option>`).join('')}</select>`;form.querySelector('textarea').before(label);const kind=form.elements.kind,tag=label.querySelector('select'),sync=()=>{label.classList.toggle('hidden',kind.value!=='comment');tag.disabled=kind.value!=='comment'};kind.addEventListener('change',sync);sync()}catch(error){console.warn('Comment tag picker failed.',error)}finally{activityCommentPickerLoading=false}}
+async function addActivityCommentTagPicker(){
+  const form=$('#update-form');
+  if(!form||form.dataset.tagsEnhanced||activityCommentPickerLoading)return;
+  const match=location.hash.match(/^#activity\/(\d+)/);
+  if(!match)return;
+  form.dataset.tagsEnhanced='loading';
+  activityCommentPickerLoading=true;
+  try{
+    const detail=await api(`/api/activities/${match[1]}`);
+    if(!form.isConnected)return;
+    $$('.timeline-item').forEach((item,index)=>{
+      const update=detail.updates?.[index];
+      if(!update?.tagged_user_name)return;
+      const tag=document.createElement('span');
+      tag.className='comment-person-tag';
+      tag.textContent=`@${update.tagged_user_name}`;
+      $('.meta',item)?.append(tag);
+    });
+    const label=document.createElement('label');
+    label.className='comment-tag-field';
+    label.innerHTML=`${t('Tag a person (optional)')}<select name="tagged_user_id"><option value="">${t('No person tagged')}</option>${(detail.taggablePeople||[]).map(person=>`<option value="${person.id}">${esc(person.name)}</option>`).join('')}</select>`;
+    form.querySelector('textarea').before(label);
+    const kind=form.elements.kind,tag=label.querySelector('select'),sync=()=>{label.classList.toggle('hidden',kind.value!=='comment');tag.disabled=kind.value!=='comment'};
+    kind.addEventListener('change',sync);
+    sync();
+    form.dataset.tagsEnhanced='true';
+  }catch(error){delete form.dataset.tagsEnhanced;console.warn('Comment tag picker failed.',error)}finally{activityCommentPickerLoading=false}
+}
 new MutationObserver(()=>addActivityCommentTagPicker()).observe(document.body,{childList:true,subtree:true});
 const translatedText=raw=>{const value=raw.trim();if(!value)return raw;let out=vi[value];if(!out){const action=value.match(/^([＋↗⇩]\s*)(.+)$/);if(action&&vi[action[2]])out=action[1]+vi[action[2]]}if(!out){out=value.replace(/^(\d+) people$/,'$1 người').replace(/^(\d+) tasks$/,'$1 công việc').replace(/^(\d+) completed tasks$/,'$1 công việc hoàn thành').replace(/^(\d+) open · (\d+) completed$/,'$1 đang mở · $2 hoàn thành').replace(/^(\d+)\/(\d+) tasks( · )/,'$1/$2 công việc$3').replace(/^(admin|leader|vice_leader|member) · Edit account$/,(_,role)=>`${vi[role]} · ${vi['Edit account']}`).replace(/ · (admin|leader|vice_leader|member)$/,(_,role)=>` · ${vi[role]}`).replace(/^By /,'Người tạo: ').replace(/^Requested by /,'Được yêu cầu bởi: ').replace(/^Created /,'Ngày tạo: ').replace(/^Last updated /,'Cập nhật gần nhất: ').replace(/^Start /,'Bắt đầu: ').replace(/^Deadline /,'Hạn hoàn thành: ').replace(/^Edit /,'Sửa ').replace(/^Demo: /,'Tài khoản mẫu: ').replace(/^before the event$/,'Trước sự kiện').replace(/^during the event$/,'Trong sự kiện').replace(/^after the event$/,'Sau sự kiện').replace(/ used · /,' đã dùng · ').replace(/ remaining$/,' còn lại')}return raw.replace(value,out)};
 function translateDOM(root=document){if(lang!=='vi')return;document.body.dataset.lang='vi';document.documentElement.lang='vi';document.title='Cổng hoạt động SEEE';const stableOptions=new Set(['proposed','approved','active','completed','cancelled','low','medium','high','urgent','open','in_progress','review','done']);$$('option:not([value])',root).forEach(o=>{const original=o.textContent.trim();if(stableOptions.has(original))o.setAttribute('value',original)});const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while(n=walker.nextNode())n.nodeValue=translatedText(n.nodeValue);$$('[placeholder],[title],[aria-label]',root).forEach(el=>['placeholder','title','aria-label'].forEach(a=>{const v=el.getAttribute(a);if(v&&vi[v])el.setAttribute(a,vi[v])}))}
