@@ -130,13 +130,15 @@ CREATE TABLE IF NOT EXISTS updates (
   activity_id INT UNSIGNED NOT NULL,
   task_id INT UNSIGNED,
   user_id INT UNSIGNED NOT NULL,
+  tagged_user_id INT UNSIGNED,
   body TEXT NOT NULL,
   kind ENUM('comment','progress','evidence','issue') NOT NULL DEFAULT 'comment',
   attachment_url VARCHAR(500),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE,
   FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
-  FOREIGN KEY (user_id) REFERENCES users(id)
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (tagged_user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS documents (
