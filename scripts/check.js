@@ -2,7 +2,7 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const roots = ['app.js', 'src', 'public', 'scripts/migrate.js', 'scripts/backup-database.js'];
+const roots = ['app.js', 'src', 'public', 'scripts/migrate.js', 'scripts/backup-database.js', 'scripts/restore-2208-deleted-records.js'];
 const files = [];
 function collect(target) {
   const stat = fs.statSync(target);
