@@ -38,7 +38,7 @@ function createApplication(options = {}) {
   const context = {
     db, auth, admin, manager, isLeadership, asyncRoute, validHttpUrl, one, ids,
     ...policies,
-    bcrypt, ExcelJS, packageInfo: runtimeConfig.packageInfo, logger, mailer, push,
+    bcrypt, ExcelJS, packageInfo: runtimeConfig.packageInfo, microsoftSso: runtimeConfig.microsoftSso, logger, mailer, push,
     taskUpload, attachmentKinds, allowedExtensions, attachmentRoot, path, fs, crypto
   };
   registerRoutes(app, context);

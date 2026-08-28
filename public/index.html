@@ -10,16 +10,22 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css?v=2.1.3">
   <link rel="stylesheet" href="/components.css?v=2.1.1">
+  <link rel="stylesheet" href="/public.css?v=1.0.0">
 </head>
 <body>
   <div id="toast" class="toast" aria-live="polite"></div>
+  <main id="public-landing" class="public-landing hidden">
+    <header class="public-nav"><a class="brand" href="/"><span class="brand-mark">S</span><span>SEEE <b>Activity Hub</b></span></a><button id="public-sign-in" class="btn primary">Sign in</button></header>
+    <section class="public-hero"><span class="eyebrow green">SEEE ACTIVITIES</span><h1>What our community is doing</h1><p>Discover the activities our teams have chosen to share.</p></section>
+    <section id="public-activities" class="public-activity-grid" aria-live="polite"></section>
+  </main>
   <main id="login" class="login-page hidden">
     <section class="login-art">
       <div class="brand brand-light"><span class="brand-mark">S</span><span>SEEE <b>Activity Hub</b></span></div>
       <div class="login-copy"><span class="eyebrow">WORK TOGETHER · REMEMBER TOGETHER</span><h1>Every contribution.<br><em>One shared story.</em></h1><p>Plan activities, coordinate teams, and preserve the work that moves our student community forward.</p></div>
       <div class="login-quote"><div class="mini-avatars"><span>MA</span><span>HN</span><span>BC</span></div><p>Built for the Youth Union & Student Association</p></div>
     </section>
-    <section class="login-panel"><button class="lang-toggle login-lang" data-language aria-label="Change language"><b>EN</b><span>VN</span></button><form id="login-form" class="login-form"><div class="mobile-brand brand"><span class="brand-mark">S</span><span>SEEE <b>Activity Hub</b></span></div><span class="eyebrow green">WELCOME BACK</span><h2>Sign in to your workspace</h2><p class="muted">Use your school account to continue.</p><label>Email address<input name="email" type="email" value="admin@seee.edu.vn" autocomplete="email" required></label><label>Password<input name="password" type="password" value="password" autocomplete="current-password" required></label><button class="btn primary wide" type="submit">Sign in <span>→</span></button><p class="demo-note">Demo: admin@seee.edu.vn / password</p></form></section>
+    <section class="login-panel"><button class="lang-toggle login-lang" data-language aria-label="Change language"><b>EN</b><span>VN</span></button><form id="login-form" class="login-form"><div class="mobile-brand brand"><span class="brand-mark">S</span><span>SEEE <b>Activity Hub</b></span></div><span class="eyebrow green">WELCOME BACK</span><h2>Sign in to your workspace</h2><p class="muted">Use your school account to continue.</p><a class="btn microsoft wide" href="/auth/microsoft">Sign in with Microsoft HUST</a><div class="or"><span>or use your local account</span></div><label>Email address<input name="email" type="email" value="admin@seee.edu.vn" autocomplete="email" required></label><label>Password<input name="password" type="password" value="password" autocomplete="current-password" required></label><button class="btn primary wide" type="submit">Sign in <span>→</span></button><p class="demo-note">Demo: admin@seee.edu.vn / password</p></form></section>
   </main>
 
   <div id="app" class="app hidden">

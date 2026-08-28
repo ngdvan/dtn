@@ -37,6 +37,8 @@ CREATE TABLE IF NOT EXISTS activities (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   title VARCHAR(180) NOT NULL,
   description TEXT NOT NULL,
+  is_public BOOLEAN NOT NULL DEFAULT FALSE,
+  public_image_url VARCHAR(1000),
   proposal_document_url VARCHAR(1000),
   type ENUM('event','assigned') NOT NULL,
   status ENUM('proposed','approved','active','completed','cancelled') NOT NULL DEFAULT 'proposed',
@@ -51,6 +53,7 @@ CREATE TABLE IF NOT EXISTS activities (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FULLTEXT KEY activity_search (title, description, result_summary),
+  INDEX activities_public (is_public, created_at),
   FOREIGN KEY (team_id) REFERENCES teams(id),
   FOREIGN KEY (creator_id) REFERENCES users(id)
 );
