@@ -1,8 +1,7 @@
 function createAccessPolicies(db, isLeadership) {
   function activityScope(user, alias = 'a') {
     if (user.role === 'admin') return { sql: '1=1', params: [] };
-    if (isLeadership(user)) return { sql: `(${alias}.creator_id=? OR EXISTS(SELECT 1 FROM activity_teams sat JOIN user_teams sut ON sut.team_id=sat.team_id WHERE sat.activity_id=${alias}.id AND sut.user_id=? AND (sut.is_lead=1 OR sut.is_vice_lead=1)))`, params: [user.id, user.id] };
-    return { sql: `(EXISTS(SELECT 1 FROM participants sp WHERE sp.activity_id=${alias}.id AND sp.user_id=? AND sp.state!='declined') OR EXISTS(SELECT 1 FROM tasks st JOIN task_assignees sta ON sta.task_id=st.id WHERE st.activity_id=${alias}.id AND sta.user_id=?) OR EXISTS(SELECT 1 FROM activity_teams sat JOIN user_teams sut ON sut.team_id=sat.team_id WHERE sat.activity_id=${alias}.id AND sut.user_id=?))`, params: [user.id, user.id, user.id] };
+    return { sql: `(${alias}.is_public=1 OR EXISTS(SELECT 1 FROM activity_teams sat JOIN user_teams sut ON sut.team_id=sat.team_id WHERE sat.activity_id=${alias}.id AND sut.user_id=?))`, params: [user.id] };
   }
   async function leadsTeam(userId, teamId) { const [rows] = await db.execute('SELECT 1 FROM user_teams WHERE user_id=? AND team_id=? AND (is_lead=1 OR is_vice_lead=1)', [userId, teamId]); return !!rows.length; }
   async function belongsToTeam(userId, teamId) { const [rows] = await db.execute('SELECT 1 FROM user_teams WHERE user_id=? AND team_id=?', [userId, teamId]); return !!rows.length; }
