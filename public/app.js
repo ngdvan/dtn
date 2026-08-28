@@ -117,10 +117,10 @@ async function logoutPushUserWithTimeout(){
 }
 
 async function init(){const s=await api('/api/session');const v=await api('/api/version').catch(()=>null);if(v)$('#app-version').textContent=`v${v.version} · ${v.build}`;if(!s.user){$('#login').classList.remove('hidden');return}state.user=s.user;setupPushNotifications().catch(error=>console.warn('Push notification setup failed.',error));document.body.dataset.role=s.user.role;if(!['admin','leader','vice_leader'].includes(s.user.role))$$('[data-manager-only]').forEach(x=>x.remove());$('#app').classList.remove('hidden');$('#sidebar-user').innerHTML=`${avatar(s.user.name,s.user.avatar_color)}<span><strong>${esc(s.user.name)}</strong><small>${esc(s.user.role.replace('_',' '))} · Edit account</small></span>`;$('#sidebar-user').onclick=selfAccountModal;$('#sidebar-user').title='Edit account';window.addEventListener('hashchange',route);route()}
-$('#login-form').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/login',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});location.reload()}catch(err){toast(err.message)}});
-$('#logout').addEventListener('click',async()=>{await logoutPushUserWithTimeout();await api('/api/logout',{method:'POST'});location.reload()});
-$('#mobile-menu').addEventListener('click',()=>$('.sidebar').classList.toggle('open'));
-$('#modal').addEventListener('click',e=>{if(e.target.hasAttribute('data-close'))$('#modal').close()});
+$('#login-form')?.addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/login',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});location.reload()}catch(err){toast(err.message)}});
+$('#logout')?.addEventListener('click',async()=>{await logoutPushUserWithTimeout();await api('/api/logout',{method:'POST'});location.reload()});
+$('#mobile-menu')?.addEventListener('click',()=>$('.sidebar')?.classList.toggle('open'));
+$('#modal')?.addEventListener('click',e=>{if(e.target.hasAttribute('data-close'))$('#modal')?.close()});
 
 async function route(){const [page='dashboard',id]=location.hash.slice(1).split('/');$$('#nav a').forEach(a=>a.classList.toggle('active',a.dataset.page===page||(page==='team'&&a.dataset.page==='teams')));$('.sidebar').classList.remove('open');$('#content').innerHTML='<div class="empty">Loading…</div>';try{if(page==='dashboard')await dashboard();else if(page==='activities')await activities();else if(page==='activity'&&id)await activityDetail(id);else if(page==='my-tasks')await myTasks();else if(page==='teams')await teams();else if(page==='team'&&id)await teamPage(id);else if(page==='people')await people();else if(page==='documents')await documents();else if(page==='reports'&&canManage())await reports();else if(page==='archive')await archive();else location.hash='dashboard'}catch(e){$('#content').innerHTML=empty(t('Unable to load this page'),esc(t(e.message)))}}
 
