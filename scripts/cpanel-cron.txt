@@ -1,4 +1,4 @@
 # cPanel Cron Jobs schedule: once per day (for example, 02:15 server time)
 # Minute: 15  Hour: 2  Day: *  Month: *  Weekday: *
 
-/bin/cd /home/nhsvsvwx/dtn && /home/nhsvsvwx/nodevenv/dtn/22/bin/node /home/nhsvsvwx/dtn/scripts/backup-database.js >> /home/nhsvsvwx/dtn/tmp/database-backup.log 2>&1
+cd /home/nhsvsvwx/dtn && /home/nhsvsvwx/nodevenv/dtn/22/bin/node /home/nhsvsvwx/dtn/scripts/backup-database.js >> /home/nhsvsvwx/dtn/tmp/database-backup.log 2>&1

@@ -31,6 +31,7 @@ Object.assign(vi,{'Main activity proposal document':'Đề án hoạt động','
 Object.assign(vi,{'Notifications':'Thông báo','Kept for 7 days':'Lưu trong 7 ngày','No notifications yet.':'Chưa có thông báo.','Task due today':'Công việc đến hạn hôm nay'});
 Object.assign(vi,{'Tag a person (optional)':'Gắn thẻ một người (không bắt buộc)','No person tagged':'Không gắn thẻ ai','You were tagged in a comment':'Bạn được gắn thẻ trong một bình luận'});
 Object.assign(vi,{'Tag people (optional)':'Gắn thẻ nhiều người (không bắt buộc)','Hold Ctrl or Command to select multiple people.':'Giữ Ctrl hoặc Command để chọn nhiều người.'});
+Object.assign(vi,{'Search people to tag…':'Tìm người để gắn thẻ…','No matching people':'Không tìm thấy người phù hợp','Remove':'Bỏ'});
 const t=s=>lang==='vi'?(vi[s]||s):s;
 let activityCommentPickerLoading=false;
 async function addActivityCommentTagPicker(){
@@ -52,13 +53,19 @@ async function addActivityCommentTagPicker(){
         $('.meta',item)?.append(tag);
       }
     });
-    const label=document.createElement('label');
+    const label=document.createElement('div');
     label.className='comment-tag-field';
-    label.innerHTML=`${t('Tag people (optional)')}<select name="tagged_user_choices" multiple size="${Math.min(5,Math.max(2,(detail.taggablePeople||[]).length))}">${(detail.taggablePeople||[]).map(person=>`<option value="${person.id}">${esc(person.name)}</option>`).join('')}</select><input type="hidden" name="tagged_user_ids"><small>${t('Hold Ctrl or Command to select multiple people.')}</small>`;
+    label.innerHTML=`<span class="comment-tag-label">${t('Tag people (optional)')}</span><div class="comment-tag-picker"><div class="comment-tag-selected"></div><input class="comment-tag-search" type="search" autocomplete="off" placeholder="${t('Search people to tag…')}" aria-label="${t('Search people to tag…')}"><div class="comment-tag-results hidden"></div></div><input type="hidden" name="tagged_user_ids">`;
     form.querySelector('textarea').before(label);
-    const kind=form.elements.kind,tag=label.querySelector('select'),tagIds=label.querySelector('input'),sync=()=>{label.classList.toggle('hidden',kind.value!=='comment');tag.disabled=kind.value!=='comment';tagIds.value=kind.value==='comment'?[...tag.selectedOptions].map(option=>option.value).join(','):''};
+    const people=detail.taggablePeople||[],selected=new Map,kind=form.elements.kind,search=$('.comment-tag-search',label),results=$('.comment-tag-results',label),selectedBox=$('.comment-tag-selected',label),tagIds=$('input[type="hidden"]',label),fold=value=>String(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase();
+    const renderSelected=()=>{selectedBox.innerHTML=[...selected.values()].map(person=>`<button type="button" class="comment-tag-chip" data-remove-tag="${person.id}" aria-label="${t('Remove')} ${esc(person.name)}">@${esc(person.name)} <span>×</span></button>`).join('');tagIds.value=kind.value==='comment'?[...selected.keys()].join(','):''};
+    const renderResults=()=>{const query=fold(search.value.trim()),matches=people.filter(person=>!selected.has(Number(person.id))&&(!query||fold(person.name).includes(query))).slice(0,8);results.innerHTML=matches.length?matches.map(person=>`<button type="button" data-add-tag="${person.id}">${esc(person.name)}<small>${esc(person.role||'')}</small></button>`).join(''):`<p>${t('No matching people')}</p>`;results.classList.remove('hidden')};
+    const sync=()=>{const commenting=kind.value==='comment';label.classList.toggle('hidden',!commenting);search.disabled=!commenting;renderSelected()};
     kind.addEventListener('change',sync);
-    tag.addEventListener('change',sync);
+    search.addEventListener('input',renderResults);
+    search.addEventListener('focus',renderResults);
+    label.addEventListener('click',event=>{const add=event.target.closest('[data-add-tag]'),remove=event.target.closest('[data-remove-tag]');if(add){const person=people.find(item=>Number(item.id)===Number(add.dataset.addTag));if(person)selected.set(Number(person.id),person);search.value='';renderSelected();renderResults();search.focus()}else if(remove){selected.delete(Number(remove.dataset.removeTag));renderSelected();renderResults();search.focus()}});
+    document.addEventListener('click',event=>{if(!label.contains(event.target))results.classList.add('hidden')},{signal:form.tagPickerAbort||(form.tagPickerAbort=new AbortController()).signal});
     sync();
     form.dataset.tagsEnhanced='true';
   }catch(error){delete form.dataset.tagsEnhanced;console.warn('Comment tag picker failed.',error)}finally{activityCommentPickerLoading=false}
