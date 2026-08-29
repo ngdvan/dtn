@@ -4,7 +4,7 @@ const lang=localStorage.getItem('seee-language')==='en'?'en':'vi';
 const vi={
   'Overview':'Tổng quan','Activities':'Hoạt động','My tasks':'Công việc của tôi','Teams':'Các ban','People':'Thành viên','Documents':'Văn bản','Reports':'Báo cáo','Archive':'Lưu trữ','Activity Hub':'Cổng hoạt động',
   'WORK TOGETHER · REMEMBER TOGETHER':'CÙNG LÀM VIỆC · CÙNG GHI NHỚ','Every contribution.':'Mỗi đóng góp.','One shared story.':'Một câu chuyện chung.','Plan activities, coordinate teams, and preserve the work that moves our student community forward.':'Lập kế hoạch hoạt động, phối hợp các ban và lưu giữ những đóng góp thúc đẩy cộng đồng sinh viên.','Built for the Youth Union & Student Association':'Dành cho Đoàn Thanh niên & Hội Sinh viên',
-  'WELCOME BACK':'CHÀO MỪNG TRỞ LẠI','Sign in to your workspace':'Đăng nhập vào không gian làm việc','Use your school account to continue.':'Sử dụng tài khoản trường để tiếp tục.','Sign in with Microsoft HUST':'Đăng nhập bằng Microsoft HUST','or use your local account':'hoặc sử dụng tài khoản nội bộ','Email address':'Địa chỉ email','Password':'Mật khẩu','Sign in':'Đăng nhập',
+  'WELCOME BACK':'CHÀO MỪNG TRỞ LẠI','Sign in to your workspace':'Đăng nhập vào không gian làm việc','Use your school account to continue.':'Sử dụng tài khoản trường để tiếp tục.','Sign in with Microsoft HUST':'Đăng nhập bằng tài khoản HUST','or use your local account':'hoặc sử dụng tài khoản nội bộ','Email address':'Địa chỉ email','Password':'Mật khẩu','Sign in':'Đăng nhập',
   'Active activities':'Hoạt động đang diễn ra','Open tasks':'Công việc đang mở','Overdue':'Quá hạn','Completed this month':'Hoàn thành tháng này','Upcoming activities':'Hoạt động sắp tới','View all →':'Xem tất cả →','My open tasks':'Công việc đang mở của tôi','Latest activity':'Cập nhật mới nhất','Propose activity':'Đề xuất hoạt động',
   'Activities':'Hoạt động','Plan, coordinate and follow every initiative.':'Lập kế hoạch, phối hợp và theo dõi mọi hoạt động.','Search activities…':'Tìm kiếm hoạt động…','All statuses':'Tất cả trạng thái','All types':'Tất cả loại','Team events':'Sự kiện của đơn vị','Assigned':'Được giao','No activities found':'Không tìm thấy hoạt động','Try changing your search or filters.':'Hãy thử thay đổi từ khóa hoặc bộ lọc.','Team event':'Sự kiện đơn vị','Leadership assigned':'Lãnh đạo giao',
   'Back to activities':'Quay lại hoạt động','Work plan':'Kế hoạch công việc','Add task':'Thêm công việc','Before the event':'Trước sự kiện','During the event':'Trong sự kiện','After the event':'Sau sự kiện','General':'Chung','Updates & evidence':'Cập nhật & minh chứng','Comment':'Bình luận','Progress update':'Cập nhật tiến độ','Issue':'Vấn đề','Evidence':'Minh chứng','Document URL (optional)':'Liên kết tài liệu (không bắt buộc)','Share an update with the team…':'Chia sẻ cập nhật với nhóm…','Post update':'Đăng cập nhật','No updates yet.':'Chưa có cập nhật.','View attachment ↗':'Xem tệp đính kèm ↗','Participants':'Người tham gia','Volunteer':'Đăng ký tham gia','No participants yet.':'Chưa có người tham gia.','Activity details':'Chi tiết hoạt động','Status':'Trạng thái',
@@ -32,6 +32,20 @@ Object.assign(vi,{'Notifications':'Thông báo','Kept for 7 days':'Lưu trong 7 
 Object.assign(vi,{'Tag a person (optional)':'Gắn thẻ một người (không bắt buộc)','No person tagged':'Không gắn thẻ ai','You were tagged in a comment':'Bạn được gắn thẻ trong một bình luận'});
 Object.assign(vi,{'Tag people (optional)':'Gắn thẻ nhiều người (không bắt buộc)','Hold Ctrl or Command to select multiple people.':'Giữ Ctrl hoặc Command để chọn nhiều người.'});
 Object.assign(vi,{'Search people to tag…':'Tìm người để gắn thẻ…','No matching people':'Không tìm thấy người phù hợp','Remove':'Bỏ'});
+Object.assign(vi,{
+  'HUST STAFF / FACULTY':'CÁN BỘ / GIẢNG VIÊN HUST',
+  'Welcome to SEEE Activity Hub':'Chào mừng đến với Cổng hoạt động SEEE',
+  'For access, responsibilities, or more information, please contact an administrator or email':'Để được cấp quyền truy cập, phân công trách nhiệm hoặc biết thêm thông tin, vui lòng liên hệ quản trị viên hoặc gửi email đến',
+  'I understand':'Tôi đã hiểu',
+  'STUDENT INFORMATION':'THÔNG TIN SINH VIÊN',
+  'Tell us your class':'Cho chúng tôi biết lớp của bạn',
+  'Please declare your class number. You will be asked again after each sign-in until this is completed.':'Vui lòng khai báo lớp của bạn. Hệ thống sẽ tiếp tục hỏi sau mỗi lần đăng nhập cho đến khi bạn hoàn tất.',
+  'Cohort unavailable':'Chưa xác định được khóa',
+  'Inferred from your HUST student email':'Được xác định từ email sinh viên HUST của bạn',
+  'Class number':'Lớp',
+  'Save and continue':'Lưu và tiếp tục',
+  'Student information saved':'Đã lưu thông tin sinh viên'
+});
 const t=s=>lang==='vi'?(vi[s]||s):s;
 let activityCommentPickerLoading=false;
 async function addActivityCommentTagPicker(){
