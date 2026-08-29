@@ -48,6 +48,7 @@ body[data-role="member"] [data-new]{display:none}
 .task-title-link{border:0;background:transparent;padding:0;color:inherit;font:inherit;text-align:left;text-decoration:underline;text-decoration-color:transparent;text-underline-offset:3px}
 .task-title-link:hover{color:var(--green);text-decoration-color:currentColor}
 dialog{max-height:calc(100vh - 28px);overflow-y:auto}
+.onboarding-modal{width:min(520px,calc(100% - 28px))}.onboarding-modal .cohort-card{background:var(--cream);border-radius:12px;padding:14px 16px;margin:16px 0}.onboarding-modal .cohort-card strong,.onboarding-modal .cohort-card small{display:block}.onboarding-modal .cohort-card small{color:var(--muted);margin-top:4px}.onboarding-modal a{color:var(--green);font-weight:700}
 .task-detail-title{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;margin-top:5px}
 .task-detail-title h2{margin-bottom:3px}
 .task-description{font-size:13px;line-height:1.6;color:#4f5b56;padding:12px 0;border-bottom:1px solid var(--line)}

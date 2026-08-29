@@ -11,6 +11,10 @@ The interface supports English and Vietnamese and is designed for desktop comput
 The project currently provides a working Node.js and MySQL application with:
 
 - Account login and logout using MySQL-backed sessions
+- HUST email classification: `@hust.edu.vn` accounts are staff/faculty and `@sis.hust.edu.vn` accounts are students, independently of the application's operational authorization role
+- A staff/faculty account receives a one-time first-sign-in notice directing them to an administrator or `van.nguyendinh@hust.edu.vn` for more information
+- A student is prompted after every sign-in until they declare their class number (for example, `Điện 1` or `Điện tử 2`)
+- Student entrance year and cohort are inferred server-side from the first two digits following the name portion of the SIS email: `abc.def26xxxxx@sis.hust.edu.vn` means entrance year 2026 and cohort K71 (`K = 45 + YY`)
 - Role-aware access control
 - An overview dashboard with active activities, open tasks, overdue work, upcoming activities, and recent updates
 - Activity proposal and detail pages

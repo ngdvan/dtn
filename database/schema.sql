@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash VARCHAR(255) NOT NULL,
   role ENUM('admin','leader','vice_leader','member') NOT NULL DEFAULT 'member',
   phone VARCHAR(30),
+  class_number VARCHAR(100),
+  faculty_notice_acknowledged_at DATETIME,
   avatar_color CHAR(7) NOT NULL DEFAULT '#315C4C',
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
