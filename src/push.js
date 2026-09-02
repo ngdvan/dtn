@@ -29,10 +29,25 @@ async function send({ userId, title, message, url }) {
   return result;
 }
 
-function queuePush(description, notification) {
+function reportDelivery(description, callback, status) {
+  if (!callback) return;
+  Promise.resolve(callback(status)).catch(error => logger.error(`Unable to record push notification status: ${description}.`, error));
+}
+
+function queuePush(description, notification, onDelivery) {
+  if (!enabled) {
+    reportDelivery(description, onDelivery, 'failed');
+    return;
+  }
   setImmediate(() => send(notification)
-    .then(result => logger.info(`Push notification accepted: ${description}.`, { notificationId: result.id || null }))
-    .catch(error => logger.error(`Push notification failed: ${description}.`, { name: error.name, message: error.message, status: error.status, response: error.response })));
+    .then(result => {
+      logger.info(`Push notification accepted: ${description}.`, { notificationId: result.id || null });
+      reportDelivery(description, onDelivery, 'success');
+    })
+    .catch(error => {
+      logger.error(`Push notification failed: ${description}.`, { name: error.name, message: error.message, status: error.status, response: error.response });
+      reportDelivery(description, onDelivery, 'failed');
+    }));
 }
 
 module.exports = { enabled, appId, queuePush };

@@ -181,6 +181,8 @@ CREATE TABLE IF NOT EXISTS notifications (
   body VARCHAR(500) NOT NULL,
   url VARCHAR(500),
   source_key VARCHAR(190) NOT NULL,
+  email_status ENUM('pending','success','failed') NULL,
+  push_status ENUM('pending','success','failed') NULL,
   seen_at TIMESTAMP NULL,
   expires_at TIMESTAMP NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

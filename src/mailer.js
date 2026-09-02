@@ -37,11 +37,25 @@ async function send({ to, subject, heading, paragraphs, facts = [], url, buttonL
 const deliveryDetails = info => ({ messageId: info.messageId, accepted: info.accepted, rejected: info.rejected, response: info.response });
 const failureDetails = error => ({ name: error.name, message: error.message, code: error.code, command: error.command, responseCode: error.responseCode, response: error.response });
 
-function queueEmail(description, message) {
-  if (!notificationEmailEnabled || !enabled) return;
+function reportDelivery(description, callback, status) {
+  if (!callback) return;
+  Promise.resolve(callback(status)).catch(error => logger.error(`Unable to record email notification status: ${description}.`, error));
+}
+
+function queueEmail(description, message, onDelivery) {
+  if (!notificationEmailEnabled || !enabled) {
+    reportDelivery(description, onDelivery, 'failed');
+    return;
+  }
   setImmediate(() => send(message)
-    .then(info => { if (info) logger.info(`Email notification sent: ${description}.`, deliveryDetails(info)); })
-    .catch(error => logger.error(`Email notification failed: ${description}.`, failureDetails(error))));
+    .then(info => {
+      if (info) logger.info(`Email notification sent: ${description}.`, deliveryDetails(info));
+      reportDelivery(description, onDelivery, 'success');
+    })
+    .catch(error => {
+      logger.error(`Email notification failed: ${description}.`, failureDetails(error));
+      reportDelivery(description, onDelivery, 'failed');
+    }));
 }
 
 function notifyTaskAssigned(user, task, assignedBy) {
@@ -97,7 +111,7 @@ function notifyActivityProposed(admin, activity, proposedBy) {
   });
 }
 
-function notifyTaskResponse(owner, task, respondedBy, response) {
+function notifyTaskResponse(owner, task, respondedBy, response, delivery = {}) {
   const responseType = ({ comment: 'Bình luận', progress: 'Cập nhật tiến độ', issue: 'Vấn đề', evidence: 'Minh chứng' })[response.kind] || 'Phản hồi';
   const responseBody = String(response.body || '').trim();
   queueEmail(`task response on ${task.id} to user ${owner.id}`, {
@@ -108,13 +122,13 @@ function notifyTaskResponse(owner, task, respondedBy, response) {
     facts: [['Người phản hồi', respondedBy || 'Không xác định'], ['Loại phản hồi', responseType], ['Nội dung', responseBody.length > 500 ? `${responseBody.slice(0, 497)}...` : responseBody]],
     url: activityUrl(task.activity_id),
     buttonLabel: 'Xem phản hồi'
-  });
+  }, delivery.email);
   push.queuePush(`task response on ${task.id} to user ${owner.id}`, {
     userId: owner.id,
     title: 'Phản hồi công việc mới',
     message: `${respondedBy || 'Một người dùng'} đã phản hồi: ${task.title}`,
     url: activityUrl(task.activity_id)
-  });
+  }, delivery.push);
 }
 
 async function sendTestEmail(to, requestedBy) {

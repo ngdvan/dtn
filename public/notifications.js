@@ -1,4 +1,5 @@
-const notificationItem = item => `<button class="notification-item ${item.seen_at ? 'seen' : 'unread'}" data-notification-id="${item.id}"><span class="notification-symbol">!</span><span><strong>${esc(t(item.title))}</strong><p>${esc(item.body)}</p><small>${date(item.created_at)}</small></span></button>`;
+const deliveryStatus = item => ['email', 'push'].filter(channel => item[`${channel}_status`]).map(channel => `<span class="delivery-status ${item[`${channel}_status`]}">${channel === 'email' ? 'Email' : 'Push'}: ${esc(item[`${channel}_status`])}</span>`).join('');
+const notificationItem = item => `<button class="notification-item ${item.seen_at ? 'seen' : 'unread'}" data-notification-id="${item.id}"><span class="notification-symbol">!</span><span><strong>${esc(t(item.title))}</strong><p>${esc(item.body)}</p><span class="delivery-statuses">${deliveryStatus(item)}</span><small>${date(item.created_at)}</small></span></button>`;
 
 function renderNotifications() {
   const list = $('#notification-list');
