@@ -7,6 +7,10 @@ npm-debug.log*
 *.log
 .DS_Store
 *.md
+!plan.md
+!LOCAL_TESTING.md
+.local/
+test-results/
 *.png
 !docs/screenshots/*.png
 *.jpg

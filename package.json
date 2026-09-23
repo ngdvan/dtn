@@ -1,15 +1,18 @@
 {
-  "name": "seee-activity-hub",
-  "version": "2.1.1",
+  "name": "seee-workspace",
+  "version": "3.0.0",
   "private": true,
-  "description": "Internal activity and task tracking for SEEE",
+  "description": "School-wide SEEE workspace with scoped roles and configurable approvals",
   "main": "app.js",
   "scripts": {
     "dev": "node --watch app.js",
     "start": "node app.js",
-    "migrate": "node scripts/migrate.js",
-    "backup:db": "node scripts/backup-database.js",
-    "restore:2208": "node scripts/restore-2208-deleted-records.js",
+    "setup:local": "node scripts/local/setup.js",
+    "reset:local": "node scripts/local/reset.js",
+    "db:start": "node scripts/local/database.js",
+    "db:stop": "node scripts/local/stop.js",
+    "test": "node --test --test-concurrency=1 tests/workspace/*.test.js",
+    "test:ui": "node tests/workspace/browser.js",
     "check": "node scripts/check.js"
   },
   "engines": {
@@ -20,11 +23,18 @@
     "dotenv": "^16.6.1",
     "exceljs": "^4.4.0",
     "express": "^5.1.0",
-    "express-mysql-session": "^3.0.3",
     "express-session": "^1.18.2",
     "helmet": "^8.1.0",
-    "multer": "^2.2.0",
-    "mysql2": "^3.14.3",
+    "multer": "^2.3.0",
+    "mysql2": "^3.23.2",
     "nodemailer": "^9.0.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "11.1.1"
+    }
   }
 }
