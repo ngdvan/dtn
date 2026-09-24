@@ -6,7 +6,7 @@ const {roleSeeds}=require('../../src/workspace/catalog');
 
 async function seed(db){
   const [[exists]]=await db.query("SELECT COUNT(*) n FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='app_metadata'");
-  if(exists.n){const [[row]]=await db.query("SELECT value FROM app_metadata WHERE name='schema_version'");if(row?.value!=='3.0.0')throw new Error('Unexpected schema. Refusing to overwrite an existing database.');console.log('Workspace already initialized; existing data preserved.');return;}
+  if(exists.n){const [[row]]=await db.query("SELECT value FROM app_metadata WHERE name='schema_version'");if(row?.value!=='3.0.0')throw new Error('Unexpected schema. Refusing to overwrite an existing database.');await require('../../src/workspace/room-migration')(db);console.log('Workspace already initialized; existing data preserved.');return;}
   await db.query(fs.readFileSync(path.resolve(__dirname,'../../database/workspace/schema.sql'),'utf8'));
   await db.beginTransaction();
   try{
@@ -56,7 +56,7 @@ async function seed(db){
     await db.execute("INSERT INTO comments(record_id,user_id,body) VALUES(2,4,'Please add the inventory findings here. This is synthetic demo content.')");
     await db.execute("INSERT INTO audit_events(actor_id,action,target,details) VALUES(2,'workspace.seed','local-demo',?)",[JSON.stringify({synthetic:true,unit_parentage:'Local display arrangement; formal reporting lines require confirmation.'})]);
     await db.execute("INSERT INTO app_metadata(name,value) VALUES('schema_version','3.0.0'),('authorization_revision','1')");
-    await db.commit();console.log('Seeded 13 units, 8 demo identities, 4 roles, 10 records, workflows and tasks.');
+    await db.commit();await require('../../src/workspace/room-migration')(db);console.log('Seeded 13 units, 8 demo identities, 4 roles, 10 records, workflows and tasks.');
   }catch(e){await db.rollback();throw e;}
 }
 module.exports={seed};

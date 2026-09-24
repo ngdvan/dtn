@@ -143,3 +143,33 @@ test('unit cycles, wrong role scope, last admin removal and deactivation are enf
  assert.equal((await clients.admin.call('/api/admin/users/5','PATCH',{is_active:false})).status,200);
  assert.equal((await clients.member.call('/api/records')).status,401);
 });
+
+test('room access, operating hours, concurrent conflicts, manual decisions and cancellations',async()=>{
+ await clients.admin.call('/api/admin/users/5','PATCH',{is_active:true});
+ assert.equal((await clients.public.call('/api/rooms')).status,403);
+ assert.equal((await clients.member.call('/api/rooms')).status,403);
+ const [[faculty]]=await root.query("SELECT id FROM roles WHERE code='faculty'");
+ assert.equal((await clients.admin.call('/api/admin/assignments','POST',{user_id:5,unit_id:4,role_id:faculty.id})).status,200);
+ const created=await clients.admin.call('/api/rooms','POST',{name:'Test shared',location:'A1',approval_mode:'auto'});assert.equal(created.status,201);
+ const body={room_id:created.data.id,unit_id:4,date:'2099-01-05',start:'07:00',end:'08:00',chair:'Faculty chair',agenda:'Meeting agenda',category:'professional'};
+ assert.equal((await clients.public.call('/api/room-bookings','POST',body)).status,403);
+ assert.equal((await clients.member.call('/api/room-bookings','POST',{...body,start:'06:59'})).status,400);
+ const results=await Promise.all([clients.member.call('/api/room-bookings','POST',body),clients.member.call('/api/room-bookings','POST',body)]);
+ assert.deepEqual(results.map(r=>r.status).sort(),[201,409]);assert.equal(results.find(r=>r.status===201).data.status,'approved');
+ assert.equal((await clients.member.call('/api/room-bookings','POST',{...body,start:'08:00',end:'09:00'})).status,201);
+ const weekend={...body,date:'2099-01-03',start:'16:00',end:'17:01'};
+ assert.equal((await clients.member.call('/api/room-bookings','POST',weekend)).status,400);
+ assert.equal((await clients.member.call('/api/room-bookings','POST',{...weekend,end:'17:00'})).status,201);
+ const manual=await clients.admin.call('/api/rooms','POST',{name:'Test special',location:'A2',approval_mode:'manual',approver_id:7});assert.equal(manual.status,201);
+ const pending=await clients.member.call('/api/room-bookings','POST',{...body,room_id:manual.data.id});assert.equal(pending.data.status,'pending');
+ const url='/api/room-bookings/'+pending.data.id+'/decision';
+ assert.equal((await clients.leader.call(url,'POST',{decision:'approve'})).status,403);
+ assert.equal((await clients.office.call(url,'POST',{decision:'reject'})).status,400);
+ assert.equal((await clients.office.call(url,'POST',{decision:'approve'})).status,200);
+ assert.equal((await clients.office.call(url,'POST',{decision:'approve'})).status,409);
+ assert.equal((await clients.member.call(url,'POST',{decision:'cancel'})).status,200);
+ const next=await clients.member.call('/api/room-bookings','POST',{...body,room_id:manual.data.id});assert.equal(next.status,201);
+ assert.equal((await clients.office.call('/api/room-bookings/'+next.data.id+'/decision','POST',{decision:'reject',note:'Unavailable'})).status,200);
+ assert.equal((await clients.admin.call('/api/admin/assignments','POST',{user_id:5,unit_id:4,role_id:faculty.id,revoke:true})).status,200);
+ assert.equal((await clients.member.call('/api/rooms')).status,403);
+});

@@ -43,7 +43,8 @@ module.exports=function routes(app,db){
     const [units]=await db.query('SELECT * FROM units WHERE is_active=1 ORDER BY id');
     const [roles]=await db.query('SELECT id,code,name,scope FROM roles ORDER BY id');
     const [stats]=await db.query(`SELECT r.kind,r.status,COUNT(*) total FROM records r WHERE ${A.readScope(req.user)} GROUP BY r.kind,r.status`);
-    res.json({user:req.user,units,roles,stats,isAdmin:A.isAdmin(req.user),canCreate:units.some(u=>A.has(req.user,'record.create',u.id)),canAppoint:units.some(u=>A.has(req.user,'team.appoint',u.id)),recoveryOwner:'van.nguyendinh@hust.edu.vn'});
+    const [[roomApprover]]=await db.execute('SELECT id FROM rooms WHERE approver_id=? AND is_active=1 LIMIT 1',[req.user.id]);
+    res.json({canRooms:require('./rooms').canBook(req.user)||require('./rooms').canManage(req.user)||!!roomApprover,user:req.user,units,roles,stats,isAdmin:A.isAdmin(req.user),canCreate:units.some(u=>A.has(req.user,'record.create',u.id)),canAppoint:units.some(u=>A.has(req.user,'team.appoint',u.id)),recoveryOwner:'van.nguyendinh@hust.edu.vn'});
   });
   app.get('/api/records',async(req,res)=>{
     const page=Math.max(1,Math.min(100000,Number(req.query.page)||1));const limit=24;const where=[A.readScope(req.user)],values=[];
@@ -162,5 +163,6 @@ module.exports=function routes(app,db){
     const workbook=new ExcelJS.Workbook();const sheet=workbook.addWorksheet('Records');sheet.columns=Object.keys(rows[0]||{id:0}).map(k=>({header:k,key:k,width:k==='title'?45:22}));rows.forEach(r=>sheet.addRow(r));sheet.views=[{state:'frozen',ySplit:1}];sheet.getRow(1).font={bold:true};
     await audit(db,req.user.id,'history.export','records',{count:rows.length});res.type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').attachment('seee-workspace-records.xlsx').send(Buffer.from(await workbook.xlsx.writeBuffer()));
   });
+  require('./rooms')(app,db,mutate);
   require('./admin')(app,db,mutate);
 };

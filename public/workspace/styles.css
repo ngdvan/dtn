@@ -7,3 +7,9 @@
 .mark{flex-shrink:0}.sidebar .brand{font-size:16px}.sidebar .brand small{font-size:8px;letter-spacing:1px;line-height:1.6}.brand>span:last-child{min-width:0}
 
 @media(max-width:800px){.sidebar:not(.open){visibility:hidden}}
+
+.room-toolbar{display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:16px}.room-calendar{overflow:auto;margin:20px 0}.room-calendar table{width:100%;min-width:1000px;border-collapse:collapse}.room-calendar th,.room-calendar td{border:1px solid #d9dfdc;padding:8px;vertical-align:top;min-width:120px}.room-calendar th{background:#eef3f0}.room-slot{padding:6px;margin:2px 0;background:#d9eee4;border-left:3px solid #245747;font-size:12px}.room-slot.pending{background:#fff0cb;border-color:#b88016}.room-closed{background:#eee;color:#777}
+.room-booking{padding:16px 0;border-bottom:1px solid #d9dfdc;overflow-wrap:anywhere}.room-booking .btn{margin:4px}.room-toolbar input,.room-toolbar select{padding:8px;border:1px solid #d9dfdc;border-radius:6px}
+
+[hidden]{display:none!important}
+.list-search{margin:16px 0;flex-wrap:wrap}.list-search input{min-width:180px;flex:1}.option-search{margin:4px 0}.tool-list .card{display:block}.tool-list .card:hover{border-color:var(--accent,#173f36)}
