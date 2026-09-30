@@ -3,7 +3,7 @@ const { findOrCreateHustAccount } = require('../auth/hust-account');
 const { classifyHustEmail, studentCohortFromEmail, withHustIdentity } = require('../auth/hust-identity');
 
 function createSystemRoutes(context) {
-  const { db, auth, admin, manager, isLeadership, asyncRoute, validHttpUrl, one, ids, activityScope, leadsTeam, belongsToTeam, canManageTeam, managedTeamIds, canManageUser, canManageActivity, visibleActivity, bcrypt, ExcelJS, packageInfo, microsoftSso, logger, mailer, push, taskUpload, attachmentKinds, allowedExtensions, attachmentRoot, path, fs, crypto } = context;
+  const { db, auth, admin, manager, isLeadership, asyncRoute, validHttpUrl, one, ids, restrictActivityDocuments, activityScope, leadsTeam, belongsToTeam, canManageTeam, managedTeamIds, canManageUser, canManageActivity, visibleActivity, bcrypt, ExcelJS, packageInfo, microsoftSso, logger, mailer, push, taskUpload, attachmentKinds, allowedExtensions, attachmentRoot, path, fs, crypto } = context;
   const router = express.Router();
 
 router.get('/api/session',(req,res)=>res.json({user:withHustIdentity(req.session.user||null)}));
@@ -31,6 +31,7 @@ router.get('/api/bootstrap',auth,asyncRoute(async(req,res)=>{
     db.execute(`SELECT n.body,n.kind,n.created_at,usr.name user_name,usr.avatar_color,a.title activity_title,a.id activity_id FROM updates n JOIN users usr ON usr.id=n.user_id JOIN activities a ON a.id=n.activity_id WHERE ${s.sql} ORDER BY n.created_at DESC LIMIT 7`,s.params),
     db.execute(`SELECT t.*,EXISTS(SELECT 1 FROM user_teams ux WHERE ux.team_id=t.id AND ux.user_id=? AND (ux.is_lead=1 OR ux.is_vice_lead=1)) can_manage FROM teams t WHERE t.is_active=1 ORDER BY t.sort_order,t.name`,[user.id])
   ]);
+  await restrictActivityDocuments(user,upcoming);
   res.json({stats:one(statRows),upcoming,tasks,activity,teams,capabilities:{canCreateActivity:user.role==='admin'||isLeadership(user),canCreateAccount:user.role==='admin'}})
 }));
 

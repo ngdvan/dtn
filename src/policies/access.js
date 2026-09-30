@@ -11,7 +11,18 @@ function createAccessPolicies(db, isLeadership) {
   async function canManageActivity(user, activityId) { if (user.role === 'admin') return true; const [rows] = await db.execute('SELECT 1 FROM activities a JOIN activity_teams at ON at.activity_id=a.id JOIN user_teams ut ON ut.team_id=at.team_id WHERE a.id=? AND (a.creator_id=? OR (ut.user_id=? AND (ut.is_lead=1 OR ut.is_vice_lead=1))) LIMIT 1', [activityId, user.id, user.id]); return !!rows.length; }
   async function visibleActivity(user, activityId) { const scope = activityScope(user); const [rows] = await db.execute(`SELECT 1 FROM activities a WHERE a.id=? AND ${scope.sql}`, [activityId, ...scope.params]); return !!rows.length; }
 
-  return { activityScope, leadsTeam, belongsToTeam, canManageTeam, managedTeamIds, canManageUser, canManageActivity, visibleActivity };
+  // Authorship alone does not grant access to the main proposal document.
+  async function restrictActivityDocuments(user, activities) {
+    if (user.role === 'admin' || !activities.length) return activities;
+    const [rows] = await db.execute('SELECT DISTINCT at.activity_id FROM activity_teams at JOIN user_teams ut ON ut.team_id=at.team_id WHERE ut.user_id=? AND (ut.is_lead=1 OR ut.is_vice_lead=1)', [user.id]);
+    const allowed = new Set(rows.map(row => Number(row.activity_id)));
+    for (const activity of activities) {
+      if (!allowed.has(Number(activity.id))) delete activity.proposal_document_url;
+    }
+    return activities;
+  }
+
+  return { restrictActivityDocuments, activityScope, leadsTeam, belongsToTeam, canManageTeam, managedTeamIds, canManageUser, canManageActivity, visibleActivity };
 }
 
 module.exports = { createAccessPolicies };

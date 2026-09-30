@@ -4,6 +4,27 @@ function createTaskRoutes(context) {
   const { db, auth, admin, manager, isLeadership, asyncRoute, validHttpUrl, one, ids, activityScope, leadsTeam, belongsToTeam, canManageTeam, managedTeamIds, canManageUser, canManageActivity, visibleActivity, bcrypt, ExcelJS, packageInfo, logger, mailer, push, taskUpload, attachmentKinds, allowedExtensions, attachmentRoot, path, fs, crypto } = context;
   const router = express.Router();
 
+router.delete('/api/tasks/:id',auth,admin,asyncRoute(async(req,res)=>{
+  const taskId=Number(req.params.id);
+  if(!Number.isInteger(taskId)||taskId<1)return res.status(400).json({error:'A valid task ID is required.'});
+  const conn=await db.getConnection();
+  let storedNames=[];
+  try{
+    await conn.beginTransaction();
+    const [tasks]=await conn.execute('SELECT id FROM tasks WHERE id=? FOR UPDATE',[taskId]);
+    if(!tasks.length){await conn.rollback();return res.status(404).json({error:'Task not found.'})}
+    const [attachments]=await conn.execute('SELECT stored_name FROM task_attachments WHERE task_id=? AND stored_name IS NOT NULL',[taskId]);
+    storedNames=attachments.map(item=>path.basename(item.stored_name)).filter(Boolean);
+    // Foreign keys cascade to assignments, attachments, updates and notifications.
+    await conn.execute('DELETE FROM tasks WHERE id=?',[taskId]);
+    await conn.commit();
+  }catch(error){await conn.rollback();throw error}finally{conn.release()}
+  const cleanup=await Promise.allSettled(storedNames.map(name=>fs.promises.unlink(path.join(attachmentRoot,name)).catch(error=>{if(error.code!=='ENOENT')throw error})));
+  const failures=cleanup.filter(result=>result.status==='rejected');
+  if(failures.length)logger.error(`Task ${taskId} was deleted but attachment files could not be removed.`,failures.map(result=>result.reason));
+  res.json({ok:true,attachment_cleanup_failures:failures.length});
+}));
+
 router.patch('/api/tasks/:id',auth,asyncRoute(async(req,res)=>{const [rows]=await db.execute('SELECT t.*,EXISTS(SELECT 1 FROM task_assignees ta WHERE ta.task_id=t.id AND ta.user_id=?) assigned_to_me FROM tasks t WHERE t.id=?',[req.session.user.id,req.params.id]);const task=one(rows);if(!task)return res.status(404).json({error:'Task not found.'});const manages=await canManageTeam(req.session.user,task.team_id);if(!manages&&!task.assigned_to_me)return res.status(403).json({error:'You cannot update this task.'});const allowed=manages?['status','deadline','start_date','priority','deliverable']:['status'];const entries=Object.entries(req.body).filter(([key])=>allowed.includes(key));if(!entries.length)return res.status(400).json({error:'No valid fields supplied.'});const complete=entries.find(([k])=>k==='status')?.[1]==='done'?',completed_at=NOW()':'';await db.execute(`UPDATE tasks SET ${entries.map(([k])=>`${k}=?`).join(',')}${complete} WHERE id=?`,[...entries.map(([,v])=>v||null),req.params.id]);res.json({ok:true})}));
 
 router.post('/api/tasks/:id/attachments',auth,taskUpload.single('file'),asyncRoute(async(req,res)=>{const [tasks]=await db.execute('SELECT id,activity_id FROM tasks WHERE id=?',[req.params.id]);const task=one(tasks);if(!task||!(await visibleActivity(req.session.user,task.activity_id)))return res.status(404).json({error:'Task not found.'});const kind=attachmentKinds.includes(req.body.kind)?req.body.kind:'clarification';const linkUrl=String(req.body.link_url||'').trim();if(linkUrl&&!/^https?:\/\//i.test(linkUrl))return res.status(400).json({error:'Links must begin with http:// or https://.'});if(!req.file&&!linkUrl)return res.status(400).json({error:'Choose a file or provide a relevant link.'});let storedName=null;try{if(req.file){const ext=path.extname(req.file.originalname).toLowerCase();if(!allowedExtensions.has(ext))return res.status(415).json({error:'This file type is not supported.'});const [usageRows]=await db.execute('SELECT COALESCE(SUM(size_bytes),0) used FROM task_attachments WHERE task_id=?',[task.id]);if(Number(usageRows[0].used)+req.file.size>50*1024*1024)return res.status(413).json({error:'This task has reached its shared 50 MB upload limit.'});storedName=`${task.id}-${crypto.randomUUID()}${ext}`;await fs.promises.writeFile(path.join(attachmentRoot,storedName),req.file.buffer,{flag:'wx'})}const label=String(req.body.label||req.file?.originalname||linkUrl).trim().slice(0,180);const [result]=await db.execute('INSERT INTO task_attachments(task_id,user_id,kind,label,link_url,stored_name,original_name,mime_type,size_bytes) VALUES(?,?,?,?,?,?,?,?,?)',[task.id,req.session.user.id,kind,label,linkUrl||null,storedName,req.file?.originalname||null,req.file?.mimetype||null,req.file?.size||0]);res.status(201).json({id:result.insertId})}catch(e){if(storedName)await fs.promises.unlink(path.join(attachmentRoot,storedName)).catch(()=>{});throw e}}));
