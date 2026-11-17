@@ -10,7 +10,8 @@ async function request(t, factory, role, url, overrides = {}) {
   const app = express();
   app.use((req, res, next) => { req.session = { user: role ? { id: 7, role } : null }; next(); });
   app.use(factory({ ...auth, asyncRoute: fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next),
-    taskUpload: { single: () => (req, res, next) => next() }, ...overrides }));
+    taskUpload: { single: () => (req, res, next) => next() },
+    descriptionUpload: { single: () => (req, res, next) => next() }, ...overrides }));
   app.use((err, req, res, next) => res.status(500).json({ error: err.message }));
   const server = app.listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));

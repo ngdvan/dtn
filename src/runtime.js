@@ -1,6 +1,7 @@
 const { createApplication } = require('./app');
 const logger = require('./logger');
 const push = require('./push');
+const mailer = require('./mailer');
 const { startDeadlineNotificationScheduler } = require('./services/deadline-notifications');
 
 function start(options = {}) {
@@ -10,7 +11,7 @@ function start(options = {}) {
     logger.info(`SEEE Activity Hub v${application.config.packageInfo.version} started on port ${port}.`);
     console.log(`SEEE Activity Hub running on port ${port}`);
   });
-  const stopDeadlineNotifications = startDeadlineNotificationScheduler({ db: application.db, push, logger });
+  const stopDeadlineNotifications = startDeadlineNotificationScheduler({ db: application.db, push, mailer, logger });
 
   server.on('error', error => {
     logger.error(`HTTP server could not start on port ${port}.`, error);

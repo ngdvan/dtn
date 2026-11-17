@@ -64,6 +64,18 @@ async function detectLegacyMigrations(connection) {
   if (await schemaHas(connection, 'documents')) detected.add(4);
   if (await schemaHas(connection, 'documents', 'visibility')) detected.add(5);
   if (await schemaHas(connection, 'activities', 'proposal_document_url')) detected.add(6);
+  if (await schemaHas(connection, 'user_teams', 'is_vice_lead')) detected.add(7);
+  if (await schemaHas(connection, 'tasks', 'assigned_by')) detected.add(8);
+  if (await schemaHas(connection, 'notifications')) detected.add(9);
+  if (await schemaHas(connection, 'notifications', 'activity_id')) detected.add(10);
+  if (await schemaHas(connection, 'updates', 'tagged_user_id')) detected.add(11);
+  if (await schemaHas(connection, 'activities', 'is_public')) detected.add(12);
+  if (await schemaHas(connection, 'update_tagged_users')) detected.add(14);
+  if (await schemaHas(connection, 'users', 'class_number')) detected.add(15);
+  if (await schemaHas(connection, 'notifications', 'push_status')) detected.add(16);
+  if (await schemaHas(connection, 'activity_description_attachments')) detected.add(17);
+  if (await schemaHas(connection, 'tasks', 'self_reported_by')) detected.add(18);
+  if (await schemaHas(connection, 'yearbook_audit_log')) detected.add(19);
   return migrations.filter(migration => detected.has(migration.number));
 }
 

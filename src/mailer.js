@@ -58,6 +58,20 @@ function queueEmail(description, message, onDelivery) {
     }));
 }
 
+function notifyDeadlineReminder(user, item) {
+  if (!enabled) return;
+  setImmediate(() => send({
+    to: user.email,
+    subject: `[SEEE - Activity Hub] Nhắc hạn ngày mai: ${item.title}`,
+    heading: 'Nhắc hạn trước một ngày',
+    paragraphs: [`Xin chào ${user.name},`, `“${item.title}” sẽ đến hạn vào ngày mai. Bạn nhận được thông báo này vì bạn được giao việc hoặc tham gia hoạt động liên quan.`],
+    facts: [['Loại', item.task_id ? 'Công việc' : 'Hoạt động'], ['Hoạt động', item.activity_title], ['Hạn hoàn thành', formatDate(item.deadline)]],
+    url: activityUrl(item.activity_id),
+    buttonLabel: 'Xem chi tiết'
+  }).then(info => logger.info(`Deadline reminder email sent to user ${user.id}.`, deliveryDetails(info)))
+    .catch(error => logger.error(`Deadline reminder email failed for user ${user.id}.`, failureDetails(error))));
+}
+
 function notifyTaskAssigned(user, task, assignedBy) {
   queueEmail(`task ${task.id} to user ${user.id}`, {
     to: user.email,
@@ -151,4 +165,4 @@ async function sendTestEmail(to, requestedBy) {
   }
 }
 
-module.exports = { enabled, notifyTaskAssigned, notifyActivityRegistration, notifyActivityProposed, notifyTaskResponse, sendTestEmail };
+module.exports = { enabled, notifyTaskAssigned, notifyActivityRegistration, notifyActivityProposed, notifyTaskResponse, notifyDeadlineReminder, sendTestEmail };

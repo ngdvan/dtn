@@ -11,7 +11,7 @@ const { createSessionMiddleware } = require('./config/session');
 const { warnAboutConfiguration } = require('./config/validate');
 const { auth, admin, manager, isLeadership } = require('./middleware/auth');
 const { createErrorHandler } = require('./middleware/errors');
-const { taskUpload, attachmentKinds, allowedExtensions } = require('./middleware/uploads');
+const { taskUpload, descriptionUpload, yearbookUpload, attachmentKinds, allowedExtensions } = require('./middleware/uploads');
 const { createAccessPolicies } = require('./policies/access');
 const { asyncRoute, validHttpUrl, one, ids } = require('./routes/utils');
 const { registerRoutes } = require('./routes');
@@ -24,7 +24,9 @@ function createApplication(options = {}) {
   const db = options.db || createDatabase(runtimeConfig.db);
   const app = express();
   const attachmentRoot = path.join(__dirname, '..', 'storage', 'task-attachments');
+  const yearbookRoot = path.join(__dirname, '..', 'storage', 'yearbook-portraits');
   fs.mkdirSync(attachmentRoot, { recursive: true });
+  fs.mkdirSync(yearbookRoot, { recursive: true });
 
   warnAboutConfiguration(runtimeConfig, { mailer, push });
   app.set('trust proxy', 1);
@@ -32,6 +34,8 @@ function createApplication(options = {}) {
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: false }));
   app.use(createSessionMiddleware(runtimeConfig));
+  app.get('/ky-yeu',(_req,res)=>res.sendFile(path.join(__dirname,'..','public','ky-yeu.html')));
+  app.get('/admin/ky-yeu',(req,res)=>req.session.user?.role==='admin'&&/@(?:[a-z0-9-]+\.)?hust\.edu\.vn$/i.test(req.session.user.email)?res.sendFile(path.join(__dirname,'..','views','ky-yeu-admin.html')):res.redirect('/'));
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
   const policies = createAccessPolicies(db, isLeadership);
@@ -39,7 +43,7 @@ function createApplication(options = {}) {
     db, auth, admin, manager, isLeadership, asyncRoute, validHttpUrl, one, ids,
     ...policies,
     bcrypt, ExcelJS, packageInfo: runtimeConfig.packageInfo, microsoftSso: runtimeConfig.microsoftSso, logger, mailer, push,
-    taskUpload, attachmentKinds, allowedExtensions, attachmentRoot, path, fs, crypto
+    taskUpload, descriptionUpload, yearbookUpload, attachmentKinds, allowedExtensions, attachmentRoot, yearbookRoot, path, fs, crypto
   };
   registerRoutes(app, context);
 

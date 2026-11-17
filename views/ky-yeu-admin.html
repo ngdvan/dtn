@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Quản trị kỷ yếu SEEE</title>
+  <link rel="stylesheet" href="/ky-yeu-admin.css?v=2.4.1">
+</head>
+<body>
+  <header class="admin-header">
+    <div><strong>SEEE</strong><span>Quản trị kỷ yếu / Yearbook administration</span></div>
+    <nav><a href="/ky-yeu" target="_blank">Xem trang công khai</a><a href="/">Về hệ thống</a></nav>
+  </header>
+  <main class="admin-layout">
+    <aside class="term-panel">
+      <div class="panel-title"><h1>Các nhiệm kỳ</h1><button id="new-term" type="button">+ Thêm</button></div>
+      <div id="term-list" class="term-list"></div>
+    </aside>
+    <section class="editor-panel">
+      <div id="message" role="status" aria-live="polite"></div>
+      <div id="empty-editor" class="empty">Chọn hoặc tạo một nhiệm kỳ để bắt đầu.</div>
+      <div id="term-editor" hidden>
+        <form id="term-form" class="card">
+          <div class="card-heading"><h2>Thông tin nhiệm kỳ</h2><label class="publish"><input id="term-published" type="checkbox"> Công khai</label></div>
+          <div class="form-grid">
+            <label>Từ năm<input id="term-start" type="number" min="1956" max="2026" required></label>
+            <label>Đến năm<input id="term-end" type="number" min="1956" max="2026" required></label>
+            <label class="wide">Tên nhiệm kỳ<input id="term-title" maxlength="255" required placeholder="Ban Thường vụ nhiệm kỳ 2024–2026"></label>
+            <label>Thứ tự<input id="term-order" type="number" value="0"></label>
+            <label class="wide">Lời giới thiệu<textarea id="term-introduction" rows="5" placeholder="Giới thiệu ngắn về nhiệm kỳ…"></textarea></label>
+          </div>
+          <button class="primary" type="submit">Lưu nhiệm kỳ</button>
+        </form>
+        <section class="card">
+          <div class="card-heading"><h2>Nhân sự</h2><button id="add-person" type="button">+ Thêm nhân sự</button></div>
+          <div id="people-list"></div>
+        </section>
+      </div>
+      <section class="card audit-card">
+        <div class="card-heading"><h2>Nhật ký chỉnh sửa</h2><button id="refresh-audit" type="button">Làm mới</button></div>
+        <div id="audit-list" class="audit-list"></div>
+      </section>
+    </section>
+  </main>
+  <script src="/ky-yeu-admin.js?v=2.4.1" defer></script>
+</body>
+</html>

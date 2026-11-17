@@ -7,6 +7,7 @@ npm-debug.log*
 *.log
 .DS_Store
 *.md
+!AGENTS.md
 *.png
 !docs/screenshots/*.png
 *.jpg
@@ -18,3 +19,6 @@ coverage/
 storage/task-attachments/*
 !storage/task-attachments/.gitkeep
 !storage/task-attachments/.htaccess
+storage/yearbook-portraits/*
+!storage/yearbook-portraits/.gitkeep
+!storage/yearbook-portraits/.htaccess
