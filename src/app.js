@@ -35,6 +35,7 @@ function createApplication(options = {}) {
   app.use(express.urlencoded({ extended: false }));
   app.use(createSessionMiddleware(runtimeConfig));
   app.get('/ky-yeu',(_req,res)=>res.sendFile(path.join(__dirname,'..','public','ky-yeu.html')));
+  app.get('/ky-yeu-mau',(_req,res)=>res.sendFile(path.join(__dirname,'..','public','ky-yeu-mau.html')));
   app.get('/admin/ky-yeu',(req,res)=>req.session.user?.role==='admin'&&/@(?:[a-z0-9-]+\.)?hust\.edu\.vn$/i.test(req.session.user.email)?res.sendFile(path.join(__dirname,'..','views','ky-yeu-admin.html')):res.redirect('/'));
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
