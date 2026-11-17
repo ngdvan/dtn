@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Quản trị kỷ yếu SEEE</title>
-  <link rel="stylesheet" href="/ky-yeu-admin.css?v=2.4.4">
+  <link rel="stylesheet" href="/ky-yeu-admin.css?v=2.5.0">
+  <link rel="stylesheet" href="/ky-yeu-groups-admin.css?v=2.5.0">
 </head>
 <body>
   <header class="admin-header">
@@ -32,7 +33,11 @@
           <button class="primary" type="submit">Lưu nhiệm kỳ</button>
         </form>
         <section class="card">
-          <div class="card-heading"><h2>Nhân sự</h2><button id="add-person" type="button">+ Thêm nhân sự</button></div>
+          <div class="card-heading"><div><h2>Các ban/nhóm theo nhiệm kỳ</h2><small>Tên và số lượng thành viên có thể thay đổi theo từng thời kỳ.</small></div><button id="add-group" type="button">+ Thêm ban/nhóm</button></div>
+          <div id="groups-list"></div>
+        </section>
+        <section class="card">
+          <div class="card-heading"><h2>Nhân sự lãnh đạo và thành viên</h2><button id="add-person" type="button">+ Thêm nhân sự lãnh đạo</button></div>
           <div id="people-list"></div>
         </section>
       </div>
@@ -42,6 +47,6 @@
       </section>
     </section>
   </main>
-  <script src="/ky-yeu-admin.js?v=2.4.4" defer></script>
+  <script src="/ky-yeu-admin.js?v=2.5.0" defer></script>
 </body>
 </html>

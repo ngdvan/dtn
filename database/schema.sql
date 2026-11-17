@@ -227,10 +227,22 @@ CREATE TABLE IF NOT EXISTS yearbook_terms (
   FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS yearbook_groups (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  term_id INT UNSIGNED NOT NULL,
+  name VARCHAR(180) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX yearbook_groups_term (term_id,sort_order),
+  FOREIGN KEY (term_id) REFERENCES yearbook_terms(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS yearbook_people (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   term_id INT UNSIGNED NOT NULL,
-  role ENUM('secretary','deputy_secretary','committee_member','student_association_president') NOT NULL,
+  group_id INT UNSIGNED,
+  role ENUM('secretary','deputy_secretary','committee_member','student_association_president','group_member') NOT NULL,
   name VARCHAR(180) NOT NULL,
   academic_title VARCHAR(180),
   biography TEXT,
@@ -240,7 +252,9 @@ CREATE TABLE IF NOT EXISTS yearbook_people (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX yearbook_people_term (term_id,role,sort_order),
-  FOREIGN KEY (term_id) REFERENCES yearbook_terms(id) ON DELETE CASCADE
+  INDEX yearbook_people_group (group_id,sort_order),
+  FOREIGN KEY (term_id) REFERENCES yearbook_terms(id) ON DELETE CASCADE,
+  FOREIGN KEY (group_id) REFERENCES yearbook_groups(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS yearbook_audit_log (

@@ -76,6 +76,7 @@ async function detectLegacyMigrations(connection) {
   if (await schemaHas(connection, 'activity_description_attachments')) detected.add(17);
   if (await schemaHas(connection, 'tasks', 'self_reported_by')) detected.add(18);
   if (await schemaHas(connection, 'yearbook_audit_log')) detected.add(19);
+  if (await schemaHas(connection, 'yearbook_groups') && await schemaHas(connection, 'yearbook_people', 'group_id')) detected.add(20);
   return migrations.filter(migration => detected.has(migration.number));
 }
 
