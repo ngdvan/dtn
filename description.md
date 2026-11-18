@@ -57,6 +57,10 @@ The current implementation supports a coordinating team plus multiple supporting
 
 ## Current Release and Notifications
 
+Release v2.5.2 adds an administrator-only left navigation link to `/admin/ky-yeu`, labeled “Yearbook administration” in English and “Quản trị kỷ yếu” in Vietnamese. Every signed-in administrator sees the link regardless of email domain; other roles do not. No migration or notification change is required.
+
+Release v2.5.1 permits every authenticated administrator to open `/admin/ky-yeu` and use all yearbook administration APIs, regardless of email domain. Signed-out users and non-administrator roles remain blocked. Existing content and audit behavior are preserved; no migration or notification change is required.
+
 Release v2.5.0 adds flexible term-specific yearbook groups. Administrators can create, rename, order, and remove groups such as Ban Thư ký Hội Sinh viên, Ban Chấp hành Đoàn Thanh niên, Liên chi Đoàn, or Đoàn Trường and add any number of members to each. Group and membership changes are included in the yearbook audit trail. The public and sample pages render variable group membership; the sample demonstrates approximately five Student Association secretariat members and fifteen Youth Union executive committee members. Apply migration `020_yearbook_flexible_groups.sql` before deployment; existing yearbook terms and leadership records remain compatible.
 
 Release v2.4.4 renames the public and sample yearbook presentation to “Kỷ yếu Đoàn Thanh niên Trường Điện - Điện tử”, including the browser title, page heading, and footer. This display-only correction does not change yearbook content or require a database migration.
@@ -67,7 +71,7 @@ Release v2.4.2 corrects the public yearbook identity to “Trường Điện - �
 
 Release v2.4.1 integrates the saved feature work with current main, retaining Microsoft SSO, public activities, comment tagging, notification delivery status, participant removal, and task deletion. Apply migrations 017–019 with `npm run migrate` before deployment; existing migrations 001–016 remain unchanged. This release is backward compatible with existing main records. Verification covers the JavaScript syntax check, 23 existing tests, both upgrade and fresh-schema migration execution repeated twice, and local HTTP checks for version reporting, authentication, description uploads, yearbook publication and access control, member self-reporting, and activity deletion.
 
-The current release is v2.5.0 (build 2026-11-17.6). The browser cache-busters, package metadata, visible version, and API build identifier are synchronized with this release.
+The current release is v2.5.2 (build 2026-11-18.2). The browser cache-busters, package metadata, visible version, and API build identifier are synchronized with this release.
 
 Release v2.4.0 adds the public `/ky-yeu` online commemorative yearbook and a protected `/admin/ky-yeu` content workspace. Only signed-in administrators whose account email belongs to `hust.edu.vn` or a HUST subdomain may use the administration page and APIs. They can create and publish terms, enter biographies, organize office holders, and upload JPG, PNG, or WebP portraits up to 3 MB. Migration `019_public_yearbook.sql` creates the yearbook content and immutable audit-log tables; every create, edit, delete, and portrait-upload operation records the acting account, target, timestamp, and before/after details. Existing activity data and workflows remain backward compatible.
 
