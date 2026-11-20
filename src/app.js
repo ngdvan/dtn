@@ -9,7 +9,7 @@ const config = require('./config/environment');
 const { createDatabase } = require('./config/database');
 const { createSessionMiddleware } = require('./config/session');
 const { warnAboutConfiguration } = require('./config/validate');
-const { auth, admin, manager, isLeadership } = require('./middleware/auth');
+const { auth, admin, manager, isLeadership, canManageYearbook } = require('./middleware/auth');
 const { createErrorHandler } = require('./middleware/errors');
 const { taskUpload, descriptionUpload, yearbookUpload, attachmentKinds, allowedExtensions } = require('./middleware/uploads');
 const { createAccessPolicies } = require('./policies/access');
@@ -36,7 +36,7 @@ function createApplication(options = {}) {
   app.use(createSessionMiddleware(runtimeConfig));
   app.get('/ky-yeu',(_req,res)=>res.sendFile(path.join(__dirname,'..','public','ky-yeu.html')));
   app.get('/ky-yeu-mau',(_req,res)=>res.sendFile(path.join(__dirname,'..','public','ky-yeu-mau.html')));
-  app.get('/admin/ky-yeu',(req,res)=>req.session.user?.role==='admin'?res.sendFile(path.join(__dirname,'..','views','ky-yeu-admin.html')):res.redirect('/'));
+  app.get('/admin/ky-yeu',(req,res)=>canManageYearbook(req.session.user)?res.sendFile(path.join(__dirname,'..','views','ky-yeu-admin.html')):res.redirect('/'));
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
   const policies = createAccessPolicies(db, isLeadership);

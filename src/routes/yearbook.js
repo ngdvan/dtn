@@ -1,7 +1,8 @@
 const express = require('express');
 
 function createYearbookRoutes(context) {
-  const { db, auth, admin, asyncRoute, one, yearbookUpload, yearbookRoot, path, fs, crypto } = context;
+  const { db, auth, manager, asyncRoute, one, yearbookUpload, yearbookRoot, path, fs, crypto } = context;
+  const admin = manager;
   const router = express.Router();
   const roles = new Set(['secretary','deputy_secretary','committee_member','student_association_president','group_member']);
   const imageExtensions = new Set(['.jpg','.jpeg','.png','.webp']);
