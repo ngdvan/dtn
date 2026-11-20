@@ -9,7 +9,7 @@ const config = require('./config/environment');
 const { createDatabase } = require('./config/database');
 const { createSessionMiddleware } = require('./config/session');
 const { warnAboutConfiguration } = require('./config/validate');
-const { auth, admin, manager, isLeadership, canManageYearbook } = require('./middleware/auth');
+const { auth, admin, manager, yearbookAdmin, isLeadership, canManageYearbook } = require('./middleware/auth');
 const { createErrorHandler } = require('./middleware/errors');
 const { taskUpload, descriptionUpload, yearbookUpload, attachmentKinds, allowedExtensions } = require('./middleware/uploads');
 const { createAccessPolicies } = require('./policies/access');
@@ -41,7 +41,7 @@ function createApplication(options = {}) {
 
   const policies = createAccessPolicies(db, isLeadership);
   const context = {
-    db, auth, admin, manager, isLeadership, asyncRoute, validHttpUrl, one, ids,
+    db, auth, admin, manager, yearbookAdmin, isLeadership, asyncRoute, validHttpUrl, one, ids,
     ...policies,
     bcrypt, ExcelJS, packageInfo: runtimeConfig.packageInfo, microsoftSso: runtimeConfig.microsoftSso, logger, mailer, push,
     taskUpload, descriptionUpload, yearbookUpload, attachmentKinds, allowedExtensions, attachmentRoot, yearbookRoot, path, fs, crypto

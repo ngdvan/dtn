@@ -1,4 +1,5 @@
 'use strict';
+const { loadUserRoles } = require('./user-roles');
 
 async function findOrCreateHustAccount({ db, bcrypt, crypto }, email, profile) {
   const select = 'SELECT id,name,email,role,phone,class_number,faculty_notice_acknowledged_at,avatar_color,is_active FROM users WHERE email=?';
@@ -21,7 +22,7 @@ async function findOrCreateHustAccount({ db, bcrypt, crypto }, email, profile) {
   const user = rows[0];
   if (!user || !user.is_active) return null;
   const { is_active, ...sessionUser } = user;
-  return sessionUser;
+  return loadUserRoles(db,sessionUser);
 }
 
 module.exports = { findOrCreateHustAccount };

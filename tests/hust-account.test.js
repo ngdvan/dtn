@@ -7,11 +7,14 @@ const { withHustIdentity } = require('../src/auth/hust-identity');
 
 function fixture(existing, race = false) {
   let row = existing;
+  const roles = new Set(existing?.role ? [existing.role] : []);
   const inserts = [];
   return {
     inserts,
     context: { crypto, bcrypt, db: { async execute(sql, values) {
+      if (sql.startsWith('SELECT role FROM user_roles')) return [[...roles].map(role => ({ role }))];
       if (sql.startsWith('SELECT')) return [row ? [{ ...row }] : []];
+      if (sql.startsWith('INSERT IGNORE INTO user_roles')) { roles.add(values[1]); return [{ affectedRows: 1 }]; }
       assert.match(sql, /'member',1/);
       inserts.push(values);
       row = { id: 1, name: values[0], email: values[1], role: 'member', is_active: 1 };

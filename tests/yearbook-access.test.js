@@ -1,23 +1,37 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { manager, canManageYearbook } = require('../src/middleware/auth');
+const { canManageYearbook, yearbookAdmin, rolesOf } = require('../src/middleware/auth');
+const { requestedRoles } = require('../src/auth/user-roles');
 
-for (const role of ['admin', 'leader', 'vice_leader']) {
-  test(`${role} can open and modify the yearbook`, () => {
-    const user = { id: 1, role };
+for (const user of [
+  { role: 'admin', roles: ['admin'] },
+  { role: 'member', roles: ['member', 'ky-yeu-admin'] },
+  { role: 'leader', roles: ['leader', 'ky-yeu-admin'] },
+  { role: 'vice_leader', roles: ['vice_leader', 'ky-yeu-admin'] }
+]) {
+  test(`${user.role} with applicable roles can manage the yearbook`, () => {
     assert.equal(canManageYearbook(user), true);
     let allowed = false;
-    manager({ session: { user } }, {}, () => { allowed = true; });
+    yearbookAdmin({ session: { user } }, {}, () => { allowed = true; });
     assert.equal(allowed, true);
   });
 }
 
-for (const role of ['member', null]) {
-  test(`${role || 'signed-out visitor'} cannot manage the yearbook`, () => {
-    const user = role ? { id: 2, role } : null;
+for (const user of [
+  { role: 'member', roles: ['member'] },
+  { role: 'leader', roles: ['leader'] },
+  { role: 'vice_leader', roles: ['vice_leader'] },
+  null
+]) {
+  test(`${user?.role || 'signed-out visitor'} without yearbook authority is denied`, () => {
     assert.equal(canManageYearbook(user), false);
     let statusCode;
-    manager({ session: { user } }, { status(code) { statusCode = code; return this; }, json() {} }, () => assert.fail('Access should be denied.'));
+    yearbookAdmin({ session: { user } }, { status(code) { statusCode = code; return this; }, json() {} }, () => assert.fail('Access should be denied.'));
     assert.equal(statusCode, 403);
   });
 }
+
+test('roles combine the primary role with additional roles without duplicates', () => {
+  assert.deepEqual(rolesOf({ role: 'leader', roles: ['leader', 'ky-yeu-admin'] }), ['leader', 'ky-yeu-admin']);
+  assert.deepEqual(requestedRoles(['ky-yeu-admin', 'unknown'], 'member'), ['member', 'ky-yeu-admin']);
+});
